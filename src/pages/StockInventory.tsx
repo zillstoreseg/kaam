@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, StockItem } from '../lib/supabase';
 import { Calendar, FileDown, Package, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 
@@ -26,6 +27,7 @@ interface SalesRecord {
 
 export default function StockInventory() {
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
@@ -220,8 +222,8 @@ export default function StockInventory() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Stock Inventory Management</h1>
-          <p className="text-gray-600 mt-1">Track stock counts and sales reports</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('stockInventory.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('stockInventory.subtitle')}</p>
         </div>
       </div>
 
@@ -234,7 +236,7 @@ export default function StockInventory() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          Stock Count
+          {t('stockInventory.stockCount')}
         </button>
         <button
           onClick={() => setActiveTab('sales')}
@@ -244,20 +246,20 @@ export default function StockInventory() {
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          Sales Report
+          {t('stockInventory.salesReport')}
         </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Item</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('stockInventory.item')}</label>
             <select
               value={selectedItem}
               onChange={(e) => setSelectedItem(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-600"
             >
-              <option value="all">All Items</option>
+              <option value="all">{t('stockInventory.allItems')}</option>
               {stockItems.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
@@ -269,7 +271,7 @@ export default function StockInventory() {
           {activeTab === 'sales' && (
             <>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('stockInventory.startDate')}</label>
                 <input
                   type="date"
                   value={startDate}
@@ -279,7 +281,7 @@ export default function StockInventory() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('stockInventory.endDate')}</label>
                 <input
                   type="date"
                   value={endDate}
@@ -294,7 +296,7 @@ export default function StockInventory() {
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
                 >
                   <Search className="w-4 h-4 inline mr-2" />
-                  Load Report
+                  {t('stockInventory.loadReport')}
                 </button>
               </div>
             </>
@@ -308,7 +310,7 @@ export default function StockInventory() {
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition"
             >
               <Package className="w-4 h-4 inline mr-2" />
-              New Stock Count
+              {t('stockInventory.newStockCount')}
             </button>
           )}
           <button
@@ -316,7 +318,7 @@ export default function StockInventory() {
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-semibold transition"
           >
             <FileDown className="w-4 h-4 inline mr-2" />
-            Export to CSV
+            {t('stockInventory.exportCSV')}
           </button>
         </div>
 
