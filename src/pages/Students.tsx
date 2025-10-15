@@ -41,6 +41,20 @@ export default function Students() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<StudentWithDetails | null>(null);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    phone1: '',
+    whatsapp_number: '',
+    nationality: '',
+    address: '',
+    package_id: '',
+    branch_id: '',
+    package_start: '',
+    package_end: '',
+    notes: '',
+  });
 
   useEffect(() => {
     loadData();
@@ -286,6 +300,69 @@ export default function Students() {
     }
   }
 
+  function openAddModal() {
+    setEditingStudent(null);
+    setFormData({
+      full_name: '',
+      phone1: '',
+      whatsapp_number: '',
+      nationality: '',
+      address: '',
+      package_id: '',
+      branch_id: profile?.role === 'branch_manager' ? profile.branch_id || '' : '',
+      package_start: new Date().toISOString().split('T')[0],
+      package_end: '',
+      notes: '',
+    });
+    setShowAddModal(true);
+  }
+
+  async function handleSaveStudent() {
+    if (!formData.full_name || !formData.phone1 || !formData.package_id || !formData.branch_id || !formData.package_start || !formData.package_end) {
+      alert('Please fill all required fields');
+      return;
+    }
+
+    try {
+      const studentData = {
+        full_name: formData.full_name,
+        phone1: formData.phone1,
+        whatsapp_number: formData.whatsapp_number,
+        nationality: formData.nationality,
+        address: formData.address,
+        package_id: formData.package_id,
+        branch_id: formData.branch_id,
+        package_start: formData.package_start,
+        package_end: formData.package_end,
+        notes: formData.notes,
+        is_active: true,
+      };
+
+      if (editingStudent) {
+        const { error } = await supabase
+          .from('students')
+          .update(studentData)
+          .eq('id', editingStudent.id);
+
+        if (error) throw error;
+        alert('Student updated successfully!');
+      } else {
+        const { error } = await supabase
+          .from('students')
+          .insert(studentData);
+
+        if (error) throw error;
+        alert('Student added successfully!');
+      }
+
+      setShowAddModal(false);
+      loadData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
   function calculateDaysRemaining(packageEnd: string): number {
     const today = new Date();
     const endDate = new Date(packageEnd);
@@ -317,6 +394,13 @@ export default function Students() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">{t('students.title')}</h1>
+        <button
+          onClick={openAddModal}
+          className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 font-semibold transition flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          {t('students.add')}
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
@@ -635,6 +719,179 @@ export default function Students() {
             setGeneratedInvoice(null);
           }}
         />
+      )}
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {editingStudent ? 'Edit Student' : t('students.add')}
+              </h2>
+              <button onClick={() => setShowAddModal(false)}>
+                <X className="w-6 h-6 text-gray-600 hover:text-gray-900" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.name')} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.phone')} *
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone1}
+                    onChange={(e) => setFormData({ ...formData, phone1: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    WhatsApp Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.whatsapp_number}
+                    onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.nationality')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nationality}
+                    onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.address')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.branch')} *
+                  </label>
+                  <select
+                    value={formData.branch_id}
+                    onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                    disabled={profile?.role === 'branch_manager'}
+                  >
+                    <option value="">Select branch...</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.package')} *
+                  </label>
+                  <select
+                    value={formData.package_id}
+                    onChange={(e) => setFormData({ ...formData, package_id: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  >
+                    <option value="">Select package...</option>
+                    {packages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.packageStart')} *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.package_start}
+                    onChange={(e) => setFormData({ ...formData, package_start: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.packageEnd')} *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.package_end}
+                    onChange={(e) => setFormData({ ...formData, package_end: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {t('students.notes')}
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveStudent}
+                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 font-semibold transition"
+              >
+                {t('common.save')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
