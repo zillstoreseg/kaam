@@ -17,6 +17,7 @@ import {
   UserCog,
   Award,
   ShoppingBag,
+  Receipt,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -48,6 +49,7 @@ export default function Layout() {
     { name: t('nav.branches'), href: '/branches', icon: Building2, roles: ['super_admin'] },
     { name: 'Schemes', href: '/schemes', icon: Award, roles: ['super_admin'] },
     { name: 'Stock', href: '/stock', icon: ShoppingBag, roles: ['super_admin', 'stock_manager'] },
+    { name: 'Sales', href: '/sales', icon: Receipt, roles: ['super_admin', 'stock_manager', 'branch_manager'] },
     { name: t('nav.reports'), href: '/reports', icon: FileText, roles: ['super_admin', 'branch_manager', 'accountant'] },
     { name: 'Users', href: '/users', icon: UserCog, roles: ['super_admin'] },
     { name: t('nav.settings'), href: '/settings', icon: Settings, roles: ['super_admin'] },

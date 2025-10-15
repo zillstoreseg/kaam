@@ -100,6 +100,14 @@ export interface Settings {
   notifications_enabled: boolean;
   primary_color: string;
   accent_color: string;
+  company_address: string | null;
+  company_city: string | null;
+  company_country: string | null;
+  company_phone: string | null;
+  company_email: string | null;
+  company_website: string | null;
+  tax_registration_number: string | null;
+  company_slogan: string | null;
   created_at: string;
   updated_at: string;
 }

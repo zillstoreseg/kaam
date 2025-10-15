@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Users from './pages/Users';
 import Schemes from './pages/Schemes';
 import Stock from './pages/Stock';
+import Sales from './pages/Sales';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -81,6 +82,7 @@ function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="schemes" element={<Schemes />} />
               <Route path="stock" element={<Stock />} />
+              <Route path="sales" element={<Sales />} />
               <Route path="users" element={<Users />} />
               <Route path="settings" element={<Settings />} />
             </Route>

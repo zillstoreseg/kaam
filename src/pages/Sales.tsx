@@ -1,0 +1,621 @@
+import { useEffect, useState, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase, Student, StockItem, Invoice, InvoiceItem, Settings as SettingsType, Branch } from '../lib/supabase';
+import { Plus, X, Printer, Search, Send, ShoppingCart, Trash2, FileText } from 'lucide-react';
+
+interface CartItem {
+  stock_item: StockItem;
+  quantity: number;
+}
+
+interface InvoiceWithItems extends Invoice {
+  items: InvoiceItem[];
+  branch?: Branch;
+  customer?: Student;
+}
+
+export default function Sales() {
+  const { profile } = useAuth();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [settings, setSettings] = useState<SettingsType | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [customCustomer, setCustomCustomer] = useState({
+    name: '',
+    phone: '',
+    email: '',
+  });
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'installment'>('cash');
+  const [notes, setNotes] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [recentInvoices, setRecentInvoices] = useState<InvoiceWithItems[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithItems | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const VAT_RATE = 5;
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const [studentsRes, itemsRes, settingsRes, invoicesRes, branchesRes] = await Promise.all([
+        supabase.from('students').select('*').eq('is_active', true).order('full_name'),
+        supabase.from('stock_items').select('*').eq('is_active', true).order('name'),
+        supabase.from('settings').select('*').limit(1).single(),
+        supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(20),
+        supabase.from('branches').select('*'),
+      ]);
+
+      if (studentsRes.data) setStudents(studentsRes.data as Student[]);
+      if (itemsRes.data) setStockItems(itemsRes.data as StockItem[]);
+      if (settingsRes.data) setSettings(settingsRes.data as SettingsType);
+
+      if (invoicesRes.data) {
+        const invoicesWithDetails = await Promise.all(
+          (invoicesRes.data as Invoice[]).map(async (invoice) => {
+            const [itemsRes, studentRes] = await Promise.all([
+              supabase.from('invoice_items').select('*').eq('invoice_id', invoice.id),
+              invoice.customer_id
+                ? supabase.from('students').select('*').eq('id', invoice.customer_id).single()
+                : Promise.resolve({ data: null }),
+            ]);
+
+            const branch = (branchesRes.data as Branch[])?.find(b => b.id === invoice.branch_id);
+
+            return {
+              ...invoice,
+              items: (itemsRes.data as InvoiceItem[]) || [],
+              customer: studentRes.data as Student | undefined,
+              branch,
+            };
+          })
+        );
+        setRecentInvoices(invoicesWithDetails);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredItems = stockItems.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function addToCart(item: StockItem) {
+    const existing = cart.find((c) => c.stock_item.id === item.id);
+    if (existing) {
+      if (existing.quantity >= item.quantity) {
+        alert('Cannot add more than available stock');
+        return;
+      }
+      setCart(cart.map((c) => (c.stock_item.id === item.id ? { ...c, quantity: c.quantity + 1 } : c)));
+    } else {
+      setCart([...cart, { stock_item: item, quantity: 1 }]);
+    }
+  }
+
+  function updateQuantity(itemId: string, quantity: number) {
+    const item = cart.find((c) => c.stock_item.id === itemId);
+    if (!item) return;
+
+    if (quantity <= 0) {
+      setCart(cart.filter((c) => c.stock_item.id !== itemId));
+      return;
+    }
+
+    if (quantity > item.stock_item.quantity) {
+      alert('Cannot exceed available stock');
+      return;
+    }
+
+    setCart(cart.map((c) => (c.stock_item.id === itemId ? { ...c, quantity } : c)));
+  }
+
+  function removeFromCart(itemId: string) {
+    setCart(cart.filter((c) => c.stock_item.id !== itemId));
+  }
+
+  function calculateTotals() {
+    const subtotal = cart.reduce((sum, item) => sum + item.stock_item.price * item.quantity, 0);
+    const vatAmount = (subtotal * VAT_RATE) / 100;
+    const total = subtotal + vatAmount;
+    return { subtotal, vatAmount, total };
+  }
+
+  async function handleCreateInvoice() {
+    if (cart.length === 0) {
+      alert('Cart is empty');
+      return;
+    }
+
+    if (!selectedStudent && (!customCustomer.name || !customCustomer.phone)) {
+      alert('Please select a student or enter customer details');
+      return;
+    }
+
+    if (!profile?.branch_id) {
+      alert('Branch information is missing');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: invoiceNumber } = await supabase.rpc('generate_invoice_number');
+      const { subtotal, vatAmount, total } = calculateTotals();
+
+      const invoiceData = {
+        invoice_number: invoiceNumber,
+        branch_id: profile.branch_id,
+        customer_id: selectedStudent?.id || null,
+        customer_name: selectedStudent?.full_name || customCustomer.name,
+        customer_phone: selectedStudent?.phone1 || customCustomer.phone,
+        customer_email: customCustomer.email || null,
+        subtotal,
+        vat_rate: VAT_RATE,
+        vat_amount: vatAmount,
+        total_amount: total,
+        payment_method: paymentMethod,
+        payment_status: 'paid',
+        amount_paid: total,
+        sold_by: profile.id,
+        notes,
+        invoice_date: new Date().toISOString(),
+      };
+
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert([invoiceData])
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      const invoiceItems = cart.map((item) => ({
+        invoice_id: invoice.id,
+        stock_item_id: item.stock_item.id,
+        item_name: item.stock_item.name,
+        item_description: item.stock_item.description,
+        quantity: item.quantity,
+        unit_price: item.stock_item.price,
+        total_price: item.stock_item.price * item.quantity,
+      }));
+
+      const { error: itemsError } = await supabase.from('invoice_items').insert(invoiceItems);
+
+      if (itemsError) throw itemsError;
+
+      alert('Invoice created successfully!');
+
+      setCart([]);
+      setSelectedStudent(null);
+      setCustomCustomer({ name: '', phone: '', email: '' });
+      setNotes('');
+      setPaymentMethod('cash');
+
+      loadData();
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      alert('Error creating invoice');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function viewInvoice(invoice: InvoiceWithItems) {
+    setSelectedInvoice(invoice);
+    setShowInvoiceModal(true);
+  }
+
+  function printInvoice() {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    printWindow.document.write('<html><head><title>Invoice</title>');
+    printWindow.document.write('<style>');
+    printWindow.document.write(`
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+      .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+      .company-details { font-size: 12px; color: #666; }
+      .invoice-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+      .section { margin-bottom: 15px; }
+      .section-title { font-weight: bold; margin-bottom: 5px; }
+      table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+      th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+      th { background-color: #f5f5f5; font-weight: bold; }
+      .text-right { text-align: right; }
+      .totals { margin-top: 20px; text-align: right; }
+      .totals-row { display: flex; justify-content: flex-end; margin: 5px 0; }
+      .totals-label { width: 150px; font-weight: bold; }
+      .totals-value { width: 120px; text-align: right; }
+      .grand-total { font-size: 18px; font-weight: bold; margin-top: 10px; padding-top: 10px; border-top: 2px solid #333; }
+      .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+    `);
+    printWindow.document.write('</style></head><body>');
+    printWindow.document.write(printContent.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  }
+
+  async function sendToWhatsApp() {
+    if (!selectedInvoice) return;
+
+    const phone = selectedInvoice.customer_phone;
+    if (!phone) {
+      alert('No phone number available');
+      return;
+    }
+
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const message = `Invoice ${selectedInvoice.invoice_number}\nTotal: ${selectedInvoice.total_amount.toFixed(2)} AED\n\nThank you for your business!`;
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, '_blank');
+  }
+
+  const { subtotal, vatAmount, total } = calculateTotals();
+
+  if (loading) return <div className="text-center py-12">Loading...</div>;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sales & Invoicing</h1>
+          <p className="text-gray-600">Create new sales invoices with automatic VAT calculation</p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Customer Information</h2>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
+            <select
+              value={selectedStudent?.id || ''}
+              onChange={(e) => {
+                const student = students.find((s) => s.id === e.target.value);
+                setSelectedStudent(student || null);
+                if (student) {
+                  setCustomCustomer({ name: '', phone: '', email: '' });
+                }
+              }}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+            >
+              <option value="">-- Select Student or Enter Custom --</option>
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {student.full_name} - {student.phone1}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!selectedStudent && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
+                <input
+                  type="text"
+                  value={customCustomer.name}
+                  onChange={(e) => setCustomCustomer({ ...customCustomer, name: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  placeholder="Enter name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                <input
+                  type="tel"
+                  value={customCustomer.phone}
+                  onChange={(e) => setCustomCustomer({ ...customCustomer, phone: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  placeholder="Enter phone"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={customCustomer.email}
+                  onChange={(e) => setCustomCustomer({ ...customCustomer, email: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  placeholder="Enter email"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Add Items</h2>
+
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search items..."
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+            {filteredItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => addToCart(item)}
+                disabled={item.quantity === 0}
+                className={`p-4 border rounded-lg text-left hover:shadow-md transition ${
+                  item.quantity === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:border-red-700'
+                }`}
+              >
+                <div className="font-semibold text-gray-900">{item.name}</div>
+                <div className="text-sm text-gray-600 mt-1">{item.price.toFixed(2)} AED</div>
+                <div className="text-xs text-gray-500 mt-1">Stock: {item.quantity}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Invoices</h2>
+          <div className="space-y-2">
+            {recentInvoices.slice(0, 5).map((invoice) => (
+              <div
+                key={invoice.id}
+                className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                onClick={() => viewInvoice(invoice)}
+              >
+                <div>
+                  <div className="font-semibold">{invoice.invoice_number}</div>
+                  <div className="text-sm text-gray-600">{invoice.customer_name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-green-600">{invoice.total_amount.toFixed(2)} AED</div>
+                  <div className="text-xs text-gray-500">{new Date(invoice.created_at).toLocaleDateString()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ShoppingCart className="w-6 h-6 text-red-700" />
+            <h2 className="text-xl font-bold text-gray-900">Cart</h2>
+          </div>
+
+          {cart.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">Cart is empty</p>
+          ) : (
+            <>
+              <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
+                {cart.map((item) => (
+                  <div key={item.stock_item.id} className="flex gap-3 p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-semibold text-sm">{item.stock_item.name}</div>
+                      <div className="text-sm text-gray-600">{item.stock_item.price.toFixed(2)} AED</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max={item.stock_item.quantity}
+                        value={item.quantity}
+                        onChange={(e) => updateQuantity(item.stock_item.id, parseInt(e.target.value))}
+                        className="w-16 px-2 py-1 border rounded text-center"
+                      />
+                      <button
+                        onClick={() => removeFromCart(item.stock_item.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span>{subtotal.toFixed(2)} AED</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>VAT ({VAT_RATE}%)</span>
+                  <span>{vatAmount.toFixed(2)} AED</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <span>Total</span>
+                  <span className="text-green-600">{total.toFixed(2)} AED</span>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="installment">Installment</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    placeholder="Add notes..."
+                  />
+                </div>
+
+                <button
+                  onClick={handleCreateInvoice}
+                  disabled={saving}
+                  className="w-full bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? 'Creating...' : 'Create Invoice'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {showInvoiceModal && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white">
+              <h2 className="text-2xl font-bold">Invoice Details</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={printInvoice}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
+                <button
+                  onClick={sendToWhatsApp}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <Send className="w-4 h-4" />
+                  WhatsApp
+                </button>
+                <button onClick={() => setShowInvoiceModal(false)}>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div ref={printRef} className="p-8">
+              <div className="mb-8 border-b-2 border-gray-900 pb-6">
+                <div className="text-center">
+                  {settings?.logo_url && (
+                    <img src={settings.logo_url} alt="Logo" className="h-16 mx-auto mb-3" />
+                  )}
+                  <div className="text-3xl font-bold mb-1">{settings?.academy_name || 'Martial Arts Academy'}</div>
+                  {settings?.company_slogan && (
+                    <div className="text-sm italic text-gray-600 mb-3">{settings.company_slogan}</div>
+                  )}
+                </div>
+                <div className="text-center text-sm text-gray-700 mt-4">
+                  {settings?.company_address && <div>{settings.company_address}</div>}
+                  {settings?.company_city && <div>{settings.company_city}, {settings?.company_country || 'UAE'}</div>}
+                  <div className="mt-2">
+                    {settings?.company_phone && <span>Tel: {settings.company_phone}</span>}
+                    {settings?.company_email && <span className="ml-3">Email: {settings.company_email}</span>}
+                  </div>
+                  {settings?.tax_registration_number && (
+                    <div className="mt-2 font-semibold">TRN: {settings.tax_registration_number}</div>
+                  )}
+                </div>
+                <div className="text-center mt-4 text-lg font-bold text-red-700">TAX INVOICE</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                  <div className="font-bold text-sm mb-2">BILL TO:</div>
+                  <div className="text-sm">
+                    <div className="font-semibold">{selectedInvoice.customer_name}</div>
+                    <div>Phone: {selectedInvoice.customer_phone}</div>
+                    {selectedInvoice.customer_email && <div>Email: {selectedInvoice.customer_email}</div>}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-sm mb-2">INVOICE DETAILS:</div>
+                  <div className="text-sm">
+                    <div><span className="font-semibold">Invoice #:</span> {selectedInvoice.invoice_number}</div>
+                    <div><span className="font-semibold">Date:</span> {new Date(selectedInvoice.invoice_date).toLocaleDateString()}</div>
+                    <div><span className="font-semibold">Payment:</span> {selectedInvoice.payment_method.toUpperCase()}</div>
+                  </div>
+                </div>
+              </div>
+
+              <table className="w-full mb-8">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-4 py-3 text-left text-sm font-bold">#</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold">Item Description</th>
+                    <th className="px-4 py-3 text-right text-sm font-bold">Qty</th>
+                    <th className="px-4 py-3 text-right text-sm font-bold">Unit Price</th>
+                    <th className="px-4 py-3 text-right text-sm font-bold">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedInvoice.items.map((item, index) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="px-4 py-3 text-sm">{index + 1}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="font-semibold">{item.item_name}</div>
+                        {item.item_description && <div className="text-gray-600 text-xs">{item.item_description}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right text-sm">{item.unit_price.toFixed(2)} AED</td>
+                      <td className="px-4 py-3 text-right text-sm font-semibold">{item.total_price.toFixed(2)} AED</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex justify-end mb-8">
+                <div className="w-64">
+                  <div className="flex justify-between py-2 text-sm">
+                    <span>Subtotal:</span>
+                    <span>{selectedInvoice.subtotal.toFixed(2)} AED</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span>VAT ({selectedInvoice.vat_rate}%):</span>
+                    <span>{selectedInvoice.vat_amount.toFixed(2)} AED</span>
+                  </div>
+                  <div className="flex justify-between py-3 text-lg font-bold border-t-2 border-gray-900">
+                    <span>Total Amount:</span>
+                    <span>{selectedInvoice.total_amount.toFixed(2)} AED</span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedInvoice.notes && (
+                <div className="mb-6">
+                  <div className="font-bold text-sm mb-1">Notes:</div>
+                  <div className="text-sm text-gray-600">{selectedInvoice.notes}</div>
+                </div>
+              )}
+
+              <div className="text-center text-xs text-gray-500 border-t pt-6">
+                <div>Thank you for your business!</div>
+                <div className="mt-2">This is a computer-generated invoice</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
