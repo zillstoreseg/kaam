@@ -113,18 +113,159 @@ export default function Invoices() {
   }
 
   function printInvoice() {
-    if (printRef.current) {
-      const printWindow = window.open('', '', 'width=800,height=600');
-      if (printWindow) {
-        printWindow.document.write('<html><head><title>Invoice</title>');
-        printWindow.document.write('<style>body { font-family: Arial, sans-serif; padding: 20px; }</style>');
-        printWindow.document.write('</head><body>');
-        printWindow.document.write(printRef.current.innerHTML);
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.print();
-      }
-    }
+    if (!selectedInvoice) return;
+
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const currencySymbol = settings?.currency_symbol || 'AED';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Invoice ${selectedInvoice.invoice_number}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+            .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+            .logo { max-height: 80px; margin-bottom: 15px; }
+            .company-name { font-size: 28px; font-weight: bold; margin-bottom: 8px; }
+            .company-slogan { font-size: 14px; font-style: italic; color: #666; margin-bottom: 15px; }
+            .company-details { font-size: 12px; color: #333; line-height: 1.8; }
+            .tax-invoice { font-size: 20px; font-weight: bold; color: #b91c1c; margin-top: 15px; }
+            .invoice-info { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin: 30px 0; }
+            .info-section { font-size: 13px; }
+            .info-title { font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+            .info-right { text-align: right; }
+            table { width: 100%; border-collapse: collapse; margin: 30px 0; }
+            thead { background-color: #f5f5f5; }
+            th { padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #000; font-size: 13px; }
+            td { padding: 10px 12px; border-bottom: 1px solid #ddd; font-size: 13px; }
+            .text-right { text-align: right; }
+            .item-desc { font-weight: 600; }
+            .item-detail { font-size: 11px; color: #666; margin-top: 2px; }
+            .totals-section { float: right; width: 300px; margin-top: 20px; }
+            .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; }
+            .grand-total { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 12px; margin-top: 8px; }
+            .notes { margin: 30px 0; font-size: 13px; }
+            .notes-title { font-weight: bold; margin-bottom: 5px; }
+            .notes-content { color: #666; }
+            .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+            @media print {
+              body { padding: 20px; }
+              @page { margin: 0.5cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-header">
+            ${settings?.logo_url ? `<img src="${settings.logo_url}" alt="Logo" class="logo" />` : ''}
+            <div class="company-name">${settings?.academy_name || 'Martial Arts Academy'}</div>
+            ${settings?.company_slogan ? `<div class="company-slogan">${settings.company_slogan}</div>` : ''}
+            <div class="company-details">
+              ${settings?.company_address ? `<div>${settings.company_address}</div>` : ''}
+              ${settings?.company_city ? `<div>${settings.company_city}, ${settings?.company_country || 'UAE'}</div>` : ''}
+              <div style="margin-top: 8px;">
+                ${settings?.company_phone ? `Tel: ${settings.company_phone}` : ''}
+                ${settings?.company_email ? `<span style="margin-left: 15px;">Email: ${settings.company_email}</span>` : ''}
+              </div>
+              ${settings?.tax_registration_number ? `<div style="margin-top: 8px; font-weight: bold;">TRN: ${settings.tax_registration_number}</div>` : ''}
+            </div>
+            <div class="tax-invoice">TAX INVOICE</div>
+          </div>
+
+          <div class="invoice-info">
+            <div class="info-section">
+              <div class="info-title">BILL TO:</div>
+              <div style="font-weight: 600;">${selectedInvoice.customer_name}</div>
+              <div>Phone: ${selectedInvoice.customer_phone}</div>
+              ${selectedInvoice.customer_email ? `<div>Email: ${selectedInvoice.customer_email}</div>` : ''}
+            </div>
+            <div class="info-section info-right">
+              <div class="info-title">INVOICE DETAILS:</div>
+              <div><strong>Invoice #:</strong> ${selectedInvoice.invoice_number}</div>
+              <div><strong>Date:</strong> ${new Date(selectedInvoice.invoice_date).toLocaleDateString()}</div>
+              <div><strong>Payment:</strong> ${selectedInvoice.payment_method.toUpperCase()}</div>
+              ${selectedInvoice.branch ? `<div><strong>Branch:</strong> ${selectedInvoice.branch.name}</div>` : ''}
+              ${selectedInvoice.sold_by_profile ? `<div><strong>Sold By:</strong> ${selectedInvoice.sold_by_profile.full_name}</div>` : ''}
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th>Item Description</th>
+                <th class="text-right" style="width: 80px;">Qty</th>
+                <th class="text-right" style="width: 120px;">Unit Price</th>
+                <th class="text-right" style="width: 120px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${selectedInvoice.items.map((item, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>
+                    <div class="item-desc">${item.item_name}</div>
+                    ${item.item_description ? `<div class="item-detail">${item.item_description}</div>` : ''}
+                  </td>
+                  <td class="text-right">${item.quantity}</td>
+                  <td class="text-right">${item.unit_price.toFixed(2)} ${currencySymbol}</td>
+                  <td class="text-right" style="font-weight: 600;">${item.total_price.toFixed(2)} ${currencySymbol}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="totals-section">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>${selectedInvoice.subtotal.toFixed(2)} ${currencySymbol}</span>
+            </div>
+            <div class="total-row">
+              <span>VAT (${selectedInvoice.vat_rate}%):</span>
+              <span>${selectedInvoice.vat_amount.toFixed(2)} ${currencySymbol}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span>Total Amount:</span>
+              <span>${selectedInvoice.total_amount.toFixed(2)} ${currencySymbol}</span>
+            </div>
+            <div class="total-row" style="border-top: 1px solid #ddd; margin-top: 8px; padding-top: 8px;">
+              <span>Amount Paid:</span>
+              <span style="color: ${selectedInvoice.amount_paid >= selectedInvoice.total_amount ? '#16a34a' : '#dc2626'};">${selectedInvoice.amount_paid.toFixed(2)} ${currencySymbol}</span>
+            </div>
+            ${selectedInvoice.amount_paid < selectedInvoice.total_amount ? `
+              <div class="total-row" style="color: #dc2626;">
+                <span>Balance Due:</span>
+                <span>${(selectedInvoice.total_amount - selectedInvoice.amount_paid).toFixed(2)} ${currencySymbol}</span>
+              </div>
+            ` : ''}
+          </div>
+
+          <div style="clear: both;"></div>
+
+          ${selectedInvoice.notes ? `
+            <div class="notes">
+              <div class="notes-title">Notes:</div>
+              <div class="notes-content">${selectedInvoice.notes}</div>
+            </div>
+          ` : ''}
+
+          <div class="footer">
+            <div>Thank you for your business!</div>
+            <div style="margin-top: 8px;">This is a computer-generated invoice</div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   }
 
   async function exportToExcel() {
