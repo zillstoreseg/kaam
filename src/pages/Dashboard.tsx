@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Student, Payment } from '../lib/supabase';
-import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck } from 'lucide-react';
+import { supabase, Student, Payment, Settings as SettingsType } from '../lib/supabase';
+import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp } from 'lucide-react';
 
 interface Stats {
   totalStudents: number;
@@ -11,6 +11,7 @@ interface Stats {
   activePackages: number;
   expiringPackages: number;
   monthlyRevenue: number;
+  totalRevenue: number;
   joinedToday: number;
   trialStudents: number;
 }
@@ -25,9 +26,11 @@ export default function Dashboard() {
     activePackages: 0,
     expiringPackages: 0,
     monthlyRevenue: 0,
+    totalRevenue: 0,
     joinedToday: 0,
     trialStudents: 0,
   });
+  const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,29 +46,38 @@ export default function Dashboard() {
 
       const firstDayOfMonth = new Date();
       firstDayOfMonth.setDate(1);
-      const firstDayStr = firstDayOfMonth.toISOString().split('T')[0];
+      firstDayOfMonth.setHours(0, 0, 0, 0);
+      const firstDayStr = firstDayOfMonth.toISOString();
+
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      const endOfTodayStr = endOfToday.toISOString();
 
       let studentsQuery = supabase.from('students').select('*', { count: 'exact' });
       let attendanceQuery = supabase.from('attendance').select('*', { count: 'exact' }).eq('attendance_date', today);
       let paymentsQuery = supabase
         .from('payments')
         .select('amount')
-        .gte('payment_date', firstDayStr)
+        .gte('payment_date', firstDayStr.substring(0, 10))
         .lte('payment_date', today);
       let invoicesQuery = supabase
         .from('invoices')
         .select('amount_paid')
         .gte('invoice_date', firstDayStr)
-        .lte('invoice_date', today);
+        .lte('invoice_date', endOfTodayStr);
+      let allPaymentsQuery = supabase.from('payments').select('amount');
+      let allInvoicesQuery = supabase.from('invoices').select('amount_paid');
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
         attendanceQuery = attendanceQuery.eq('branch_id', profile.branch_id);
         paymentsQuery = paymentsQuery.eq('branch_id', profile.branch_id);
         invoicesQuery = invoicesQuery.eq('branch_id', profile.branch_id);
+        allPaymentsQuery = allPaymentsQuery.eq('branch_id', profile.branch_id);
+        allInvoicesQuery = allInvoicesQuery.eq('branch_id', profile.branch_id);
       }
 
-      const [studentsRes, attendanceRes, branchesRes, paymentsRes, invoicesRes] = await Promise.all([
+      const [studentsRes, attendanceRes, branchesRes, paymentsRes, invoicesRes, allPaymentsRes, allInvoicesRes, settingsRes] = await Promise.all([
         studentsQuery,
         attendanceQuery,
         profile?.role === 'super_admin'
@@ -73,6 +85,9 @@ export default function Dashboard() {
           : Promise.resolve({ count: 0 }),
         paymentsQuery,
         invoicesQuery,
+        allPaymentsQuery,
+        allInvoicesQuery,
+        supabase.from('settings').select('*').limit(1).maybeSingle(),
       ]);
 
       const students = (studentsRes.data as Student[]) || [];
@@ -87,6 +102,14 @@ export default function Dashboard() {
       const invoicesRevenue = (invoicesRes.data as any[])?.reduce((sum, inv) => sum + Number(inv.amount_paid), 0) || 0;
       const monthlyRevenue = paymentsRevenue + invoicesRevenue;
 
+      const allPaymentsRevenue = (allPaymentsRes.data as Payment[])?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+      const allInvoicesRevenue = (allInvoicesRes.data as any[])?.reduce((sum, inv) => sum + Number(inv.amount_paid), 0) || 0;
+      const totalRevenue = allPaymentsRevenue + allInvoicesRevenue;
+
+      if (settingsRes.data) {
+        setSettings(settingsRes.data as SettingsType);
+      }
+
       setStats({
         totalStudents: studentsRes.count || 0,
         totalBranches: branchesRes.count || 0,
@@ -94,6 +117,7 @@ export default function Dashboard() {
         activePackages,
         expiringPackages,
         monthlyRevenue,
+        totalRevenue,
         joinedToday,
         trialStudents,
       });
@@ -155,11 +179,18 @@ export default function Dashboard() {
       show: true,
     },
     {
-      title: 'Monthly Revenue (AED)',
+      title: `Monthly Revenue (${settings?.currency_symbol || 'AED'})`,
       value: stats.monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       icon: DollarSign,
       color: 'bg-teal-500',
-      show: profile?.role === 'super_admin' || profile?.role === 'branch_manager',
+      show: profile?.role === 'super_admin' || profile?.role === 'branch_manager' || profile?.role === 'accountant',
+    },
+    {
+      title: `Total Revenue (${settings?.currency_symbol || 'AED'})`,
+      value: stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      icon: TrendingUp,
+      color: 'bg-indigo-500',
+      show: profile?.role === 'super_admin' || profile?.role === 'accountant',
     },
   ].filter((card) => card.show);
 
