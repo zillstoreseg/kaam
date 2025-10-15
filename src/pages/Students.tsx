@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType } from '../lib/supabase';
-import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 import InvoiceModal from '../components/InvoiceModal';
 import SearchableSelect from '../components/SearchableSelect';
 import { nationalities } from '../data/nationalities';
@@ -45,6 +45,9 @@ export default function Students() {
   const [generatedInvoice, setGeneratedInvoice] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentWithDetails | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
   const [formData, setFormData] = useState({
     full_name: '',
     phone1: '',
@@ -306,6 +309,8 @@ export default function Students() {
 
   function openAddModal() {
     setEditingStudent(null);
+    setPhotoFile(null);
+    setPhotoPreview('');
     setFormData({
       full_name: '',
       phone1: '',
@@ -323,8 +328,61 @@ export default function Students() {
     setShowAddModal(true);
   }
 
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function uploadPhoto(): Promise<string | null> {
+    if (!photoFile) return formData.photo_url || null;
+
+    try {
+      setUploadingPhoto(true);
+      const fileExt = photoFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('student-photos')
+        .upload(filePath, photoFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('student-photos')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      alert(`Error uploading photo: ${error?.message || 'Unknown error'}`);
+      return null;
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   function openEditModal(student: StudentWithDetails) {
     setEditingStudent(student);
+    setPhotoFile(null);
+    setPhotoPreview(student.photo_url || '');
     setFormData({
       full_name: student.full_name,
       phone1: student.phone1 || '',
@@ -367,6 +425,8 @@ export default function Students() {
     }
 
     try {
+      const photoUrl = await uploadPhoto();
+
       const studentData = {
         full_name: formData.full_name,
         phone1: formData.phone1,
@@ -378,7 +438,7 @@ export default function Students() {
         package_start: formData.package_start,
         package_end: formData.package_end,
         notes: formData.notes,
-        photo_url: formData.photo_url,
+        photo_url: photoUrl || formData.photo_url,
         trial_student: formData.trial_student,
         is_active: true,
       };
@@ -921,17 +981,44 @@ export default function Students() {
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Photo URL
+                    Student Photo
                   </label>
-                  <input
-                    type="url"
-                    value={formData.photo_url}
-                    onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
-                    placeholder="https://..."
-                  />
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoSelect}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                        id="photo-upload"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Maximum file size: 5MB. Supported formats: JPEG, PNG, WebP, GIF
+                      </p>
+                    </div>
+                    {photoPreview && (
+                      <div className="relative w-24 h-24 border rounded-lg overflow-hidden">
+                        <img
+                          src={photoPreview}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhotoFile(null);
+                            setPhotoPreview('');
+                            setFormData({ ...formData, photo_url: '' });
+                          }}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -971,9 +1058,17 @@ export default function Students() {
               </button>
               <button
                 onClick={handleSaveStudent}
-                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 font-semibold transition"
+                disabled={uploadingPhoto}
+                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {t('common.save')}
+                {uploadingPhoto ? (
+                  <>
+                    <Upload className="w-4 h-4 animate-pulse" />
+                    Uploading...
+                  </>
+                ) : (
+                  t('common.save')
+                )}
               </button>
             </div>
           </div>
