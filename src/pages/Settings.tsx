@@ -19,6 +19,7 @@ export default function Settings() {
     company_email: '',
     company_website: '',
     tax_registration_number: '',
+    currency_symbol: 'AED',
     default_language: 'en' as 'en' | 'ar' | 'hi',
     notifications_enabled: false,
     primary_color: '#B91C1C',
@@ -53,6 +54,7 @@ export default function Settings() {
           company_email: data.company_email || '',
           company_website: data.company_website || '',
           tax_registration_number: data.tax_registration_number || '',
+          currency_symbol: data.currency_symbol || 'AED',
           default_language: data.default_language || 'en',
           notifications_enabled: data.notifications_enabled || false,
           primary_color: data.primary_color || '#B91C1C',
@@ -251,6 +253,20 @@ export default function Settings() {
           <h2 className="text-xl font-bold text-gray-900 mb-6">System Preferences</h2>
 
           <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+              <input
+                type="text"
+                value={formData.currency_symbol}
+                onChange={(e) => setFormData({ ...formData, currency_symbol: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="AED"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Currency symbol displayed throughout the app (e.g., AED, USD, SAR)
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
               <select

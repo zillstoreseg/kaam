@@ -100,6 +100,7 @@ export interface Settings {
   notifications_enabled: boolean;
   primary_color: string;
   accent_color: string;
+  currency_symbol: string;
   company_address: string | null;
   company_city: string | null;
   company_country: string | null;
@@ -108,6 +109,13 @@ export interface Settings {
   company_website: string | null;
   tax_registration_number: string | null;
   company_slogan: string | null;
+  message_template_expired: string | null;
+  message_template_registration: string | null;
+  message_template_renewal: string | null;
+  message_template_invoice: string | null;
+  invoice_footer_text: string | null;
+  auto_send_expired_message: boolean;
+  expired_message_days_interval: number;
   created_at: string;
   updated_at: string;
 }

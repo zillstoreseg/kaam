@@ -257,6 +257,23 @@ export default function Students() {
 
           await supabase.from('student_schemes').insert(schemeInserts);
         }
+
+        if (!editingStudent && formData.package_id) {
+          const selectedPackage = packages.find(p => p.id === formData.package_id);
+          if (selectedPackage && selectedPackage.price > 0) {
+            await supabase.from('payments').insert({
+              student_id: studentId,
+              package_id: formData.package_id,
+              amount: selectedPackage.price,
+              currency: selectedPackage.currency || 'AED',
+              payment_date: formData.package_start || new Date().toISOString().split('T')[0],
+              payment_method: 'cash',
+              notes: 'Registration payment',
+              created_by: profile?.id,
+              branch_id: formData.branch_id,
+            });
+          }
+        }
       }
 
       setShowModal(false);
@@ -343,6 +360,21 @@ export default function Students() {
         .eq('id', renewingStudent.id);
 
       if (studentError) throw studentError;
+
+      const selectedPackage = packages.find(p => p.id === renewalData.package_id);
+      if (selectedPackage && selectedPackage.price > 0) {
+        await supabase.from('payments').insert({
+          student_id: renewingStudent.id,
+          package_id: renewalData.package_id,
+          amount: selectedPackage.price,
+          currency: selectedPackage.currency || 'AED',
+          payment_date: renewalData.package_start,
+          payment_method: 'cash',
+          notes: 'Renewal payment',
+          created_by: profile?.id,
+          branch_id: renewingStudent.branch_id,
+        });
+      }
 
       setShowRenewalModal(false);
       setRenewingStudent(null);
