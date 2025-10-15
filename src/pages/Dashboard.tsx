@@ -57,18 +57,21 @@ export default function Dashboard() {
       let studentsQuery = supabase.from('students').select('*', { count: 'exact', head: false });
       let branchesQuery = supabase.from('branches').select('*', { count: 'exact', head: false });
       let attendanceQuery = supabase.from('attendance').select('*', { count: 'exact', head: false }).eq('attendance_date', today);
-      let paymentsQuery = supabase.from('payments').select('amount, currency');
+      let paymentsQuery = supabase.from('payments').select('amount');
+      let invoicesQuery = supabase.from('invoices').select('total_amount');
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
         attendanceQuery = attendanceQuery.eq('branch_id', profile.branch_id);
         paymentsQuery = paymentsQuery.eq('branch_id', profile.branch_id);
+        invoicesQuery = invoicesQuery.eq('branch_id', profile.branch_id);
       }
 
       const studentsRes = await studentsQuery;
       const branchesRes = await branchesQuery;
       const attendanceRes = await attendanceQuery;
       const paymentsRes = await paymentsQuery;
+      const invoicesRes = await invoicesQuery;
 
       let activeQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_active', true);
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
@@ -85,11 +88,15 @@ export default function Dashboard() {
       }
       const expiringRes = await expiringQuery;
 
-      let monthlyPaymentsQuery = supabase.from('payments').select('amount, currency').gte('created_at', firstDayStr);
+      let monthlyPaymentsQuery = supabase.from('payments').select('amount').gte('created_at', firstDayStr);
+      let monthlyInvoicesQuery = supabase.from('invoices').select('total_amount').gte('created_at', firstDayStr);
+
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         monthlyPaymentsQuery = monthlyPaymentsQuery.eq('branch_id', profile.branch_id);
+        monthlyInvoicesQuery = monthlyInvoicesQuery.eq('branch_id', profile.branch_id);
       }
       const monthlyPaymentsRes = await monthlyPaymentsQuery;
+      const monthlyInvoicesRes = await monthlyInvoicesQuery;
 
       let joinedTodayQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('joined_date', today);
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
@@ -107,8 +114,13 @@ export default function Dashboard() {
 
       const settingsRes = await supabase.from('settings').select('*').maybeSingle();
 
-      const monthlyRev = monthlyPaymentsRes.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-      const totalRev = paymentsRes.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+      const paymentsTotal = paymentsRes.data?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+      const invoicesTotal = invoicesRes.data?.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0) || 0;
+      const totalRev = paymentsTotal + invoicesTotal;
+
+      const monthlyPaymentsTotal = monthlyPaymentsRes.data?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+      const monthlyInvoicesTotal = monthlyInvoicesRes.data?.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0) || 0;
+      const monthlyRev = monthlyPaymentsTotal + monthlyInvoicesTotal;
 
       setStats({
         totalStudents: studentsRes.count || 0,

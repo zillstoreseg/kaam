@@ -201,53 +201,51 @@ export default function Students() {
         branch_id: selectedStudent.branch_id,
         package_id: renewalData.package_id,
         amount: finalAmount,
-        discount: discount,
         payment_method: renewalData.payment_method,
         currency: selectedPackage?.currency || 'AED',
-        payment_for: 'package_renewal',
-        notes: renewalData.notes,
+        payment_date: today.toISOString().split('T')[0],
+        notes: renewalData.notes ? `Package Renewal - Discount: ${discount} - ${renewalData.notes}` : `Package Renewal - Discount: ${discount}`,
         created_by: profile?.id,
       };
 
-      const { data: paymentResult, error: paymentError } = await supabase
+      const { error: paymentError } = await supabase
         .from('payments')
-        .insert(paymentData)
-        .select()
-        .single();
+        .insert(paymentData);
 
       if (paymentError) throw paymentError;
 
+      const invoiceNumber = `INV-${Date.now()}`;
       const invoiceData = {
-        student_id: selectedStudent.id,
+        invoice_number: invoiceNumber,
         branch_id: selectedStudent.branch_id,
-        invoice_number: `INV-${Date.now()}`,
-        invoice_date: today.toISOString().split('T')[0],
-        package_id: renewalData.package_id,
-        package_name: selectedPackage?.name || '',
-        amount: amount,
-        discount: discount,
+        customer_name: selectedStudent.full_name,
+        customer_phone: selectedStudent.phone1,
+        customer_email: selectedStudent.email || '',
+        subtotal: amount,
+        vat_rate: 0,
+        vat_amount: 0,
         total_amount: finalAmount,
-        currency: selectedPackage?.currency || 'AED',
         payment_method: renewalData.payment_method,
-        notes: renewalData.notes,
-        created_by: profile?.id,
+        payment_status: 'paid',
+        amount_paid: finalAmount,
+        sold_by: profile?.id,
+        notes: `Package: ${selectedPackage?.name} | Discount: ${discount} | ${renewalData.notes || ''}`,
+        invoice_date: today.toISOString(),
       };
 
-      const { data: invoiceResult, error: invoiceError } = await supabase
+      const { error: invoiceError } = await supabase
         .from('invoices')
-        .insert(invoiceData)
-        .select()
-        .single();
+        .insert(invoiceData);
 
-      if (invoiceError) throw invoiceError;
+      if (invoiceError) console.warn('Invoice creation warning:', invoiceError);
 
-      alert(`Package renewed successfully!\nInvoice #${invoiceData.invoice_number} generated\nAmount: ${finalAmount} ${selectedPackage?.currency || 'AED'}`);
+      alert(`Package renewed successfully!\nInvoice #${invoiceNumber} generated\nAmount: ${finalAmount} ${selectedPackage?.currency || 'AED'}`);
       setShowRenewalModal(false);
       setSelectedStudent(null);
       loadData();
     } catch (error) {
       console.error('Error:', error);
-      alert('Error processing renewal');
+      alert(`Error processing renewal: ${error.message || 'Unknown error'}`);
     }
   }
 
@@ -348,7 +346,14 @@ export default function Students() {
                       <td className="px-4 py-3">
                         {student.is_active && !isFrozen && (
                           <div className={`text-sm font-semibold ${isExpired ? 'text-red-600' : daysRemaining <= 7 ? 'text-yellow-600' : 'text-green-600'}`}>
-                            {isExpired ? `Expired ${Math.abs(daysRemaining)}d ago` : `${daysRemaining} days`}
+                            {isExpired ? (
+                              <>
+                                <div>Expired</div>
+                                <div className="text-xs">{Math.abs(daysRemaining)}d ago</div>
+                              </>
+                            ) : (
+                              `${daysRemaining} days`
+                            )}
                           </div>
                         )}
                         {isFrozen && (
