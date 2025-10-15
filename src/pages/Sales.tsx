@@ -15,6 +15,18 @@ interface InvoiceWithItems extends Invoice {
   customer?: Student;
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 export default function Sales() {
   const { profile } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -308,7 +320,7 @@ export default function Sales() {
             <div class="info-section info-right">
               <div class="info-title">INVOICE DETAILS:</div>
               <div><strong>Invoice #:</strong> ${selectedInvoice.invoice_number}</div>
-              <div><strong>Date:</strong> ${new Date(selectedInvoice.invoice_date).toLocaleDateString()}</div>
+              <div><strong>Date:</strong> ${formatDateTime(selectedInvoice.invoice_date)}</div>
               <div><strong>Payment:</strong> ${selectedInvoice.payment_method.toUpperCase()}</div>
               ${selectedInvoice.branch ? `<div><strong>Branch:</strong> ${selectedInvoice.branch.name}</div>` : ''}
             </div>
@@ -536,7 +548,7 @@ export default function Sales() {
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-green-600">{invoice.total_amount.toFixed(2)} AED</div>
-                  <div className="text-xs text-gray-500">{new Date(invoice.created_at).toLocaleDateString()}</div>
+                  <div className="text-xs text-gray-500">{formatDateTime(invoice.created_at)}</div>
                 </div>
               </div>
             ))}
@@ -721,7 +733,7 @@ export default function Sales() {
                   <div className="font-bold text-sm mb-2">INVOICE DETAILS:</div>
                   <div className="text-sm">
                     <div><span className="font-semibold">Invoice #:</span> {selectedInvoice.invoice_number}</div>
-                    <div><span className="font-semibold">Date:</span> {new Date(selectedInvoice.invoice_date).toLocaleDateString()}</div>
+                    <div><span className="font-semibold">Date:</span> {formatDateTime(selectedInvoice.invoice_date)}</div>
                     <div><span className="font-semibold">Payment:</span> {selectedInvoice.payment_method.toUpperCase()}</div>
                   </div>
                 </div>

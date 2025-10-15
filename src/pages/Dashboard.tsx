@@ -17,6 +17,15 @@ interface Stats {
   trialStudents: number;
 }
 
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
 export default function Dashboard() {
   const { profile } = useAuth();
   const { t } = useLanguage();
@@ -311,7 +320,7 @@ export default function Dashboard() {
                           </div>
                           <p className="text-sm text-gray-700 mb-2">{alert.alert_message}</p>
                           <p className="text-xs text-gray-600">
-                            Week of {new Date(alert.week_start_date).toLocaleDateString()} • {alert.session_count}/{alert.session_limit} sessions
+                            Week of {formatDate(alert.week_start_date)} • {alert.session_count}/{alert.session_limit} sessions
                           </p>
                         </div>
                         <button

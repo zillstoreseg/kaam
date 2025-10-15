@@ -10,6 +10,15 @@ interface StudentWithDetails extends Student {
   package?: PackageType;
 }
 
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
 export default function Students() {
   const { profile } = useAuth();
   const { t } = useLanguage();
@@ -364,7 +373,7 @@ export default function Students() {
                       <td className="px-4 py-3">
                         <div className="text-sm text-gray-700">{student.package?.name || 'N/A'}</div>
                         <div className="text-xs text-gray-500">
-                          {new Date(student.package_end).toLocaleDateString()}
+                          {formatDate(student.package_end)}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -387,7 +396,7 @@ export default function Students() {
                         {isFrozen && (
                           <div className="text-sm text-blue-600">
                             {student.freeze_start_date && student.freeze_end_date && (
-                              <>Until {new Date(student.freeze_end_date).toLocaleDateString()}</>
+                              <>Until {formatDate(student.freeze_end_date)}</>
                             )}
                           </div>
                         )}
@@ -463,7 +472,7 @@ export default function Students() {
             <div className="p-6 space-y-4">
               <div>
                 <p className="font-semibold text-gray-900">{selectedStudent.full_name}</p>
-                <p className="text-sm text-gray-600">Package ends: {new Date(selectedStudent.package_end).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-600">Package ends: {formatDate(selectedStudent.package_end)}</p>
               </div>
 
               <div>

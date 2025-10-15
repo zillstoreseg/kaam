@@ -11,6 +11,18 @@ interface InvoiceWithDetails extends Invoice {
   sold_by_profile?: { full_name: string };
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 export default function Invoices() {
   const { profile } = useAuth();
   const { t } = useLanguage();
@@ -184,7 +196,7 @@ export default function Invoices() {
             <div class="info-section info-right">
               <div class="info-title">INVOICE DETAILS:</div>
               <div><strong>Invoice #:</strong> ${selectedInvoice.invoice_number}</div>
-              <div><strong>Date:</strong> ${new Date(selectedInvoice.invoice_date).toLocaleDateString()}</div>
+              <div><strong>Date:</strong> ${formatDateTime(selectedInvoice.invoice_date)}</div>
               <div><strong>Payment:</strong> ${selectedInvoice.payment_method.toUpperCase()}</div>
               ${selectedInvoice.branch ? `<div><strong>Branch:</strong> ${selectedInvoice.branch.name}</div>` : ''}
               ${selectedInvoice.sold_by_profile ? `<div><strong>Sold By:</strong> ${selectedInvoice.sold_by_profile.full_name}</div>` : ''}
@@ -293,7 +305,7 @@ export default function Invoices() {
         const items = invoice.items.map((item) => `${item.item_name} (${item.quantity})`).join('; ');
         csvRows.push([
           invoice.invoice_number,
-          new Date(invoice.invoice_date).toLocaleDateString(),
+          formatDateTime(invoice.invoice_date),
           invoice.branch?.name || '',
           invoice.customer_name,
           invoice.customer_phone || '',
@@ -486,7 +498,7 @@ export default function Invoices() {
                     {invoice.invoice_number}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {new Date(invoice.invoice_date).toLocaleDateString()}
+                    {formatDateTime(invoice.invoice_date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     <div>{invoice.customer_name}</div>
@@ -573,7 +585,7 @@ export default function Invoices() {
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">{t('invoices.date')}:</span>{' '}
-                    {new Date(selectedInvoice.invoice_date).toLocaleDateString()}
+                    {formatDateTime(selectedInvoice.invoice_date)}
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">{t('invoices.branch')}:</span> {selectedInvoice.branch?.name}

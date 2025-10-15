@@ -26,6 +26,18 @@ interface InvoiceModalProps {
   onClose: () => void;
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 export default function InvoiceModal({ invoice, settings, onClose }: InvoiceModalProps) {
   const currencySymbol = settings?.currency_symbol || 'AED';
 
@@ -40,7 +52,7 @@ export default function InvoiceModal({ invoice, settings, onClose }: InvoiceModa
       `Thank you for your payment!\n\n` +
       `Invoice Details:\n` +
       `Invoice Number: ${invoice.invoice_number}\n` +
-      `Date: ${new Date(invoice.invoice_date).toLocaleDateString()}\n` +
+      `Date: ${formatDateTime(invoice.invoice_date)}\n` +
       `Amount: ${invoice.total_amount.toFixed(2)} ${currencySymbol}\n` +
       `Payment Method: ${invoice.payment_method}\n\n` +
       `${invoice.items.map(item => `${item.description}: ${item.total.toFixed(2)} ${currencySymbol}`).join('\n')}\n\n` +
@@ -95,7 +107,7 @@ export default function InvoiceModal({ invoice, settings, onClose }: InvoiceModa
                   <h2 className="text-2xl font-bold text-gray-900">INVOICE</h2>
                   <p className="text-lg font-semibold text-gray-700 mt-1">#{invoice.invoice_number}</p>
                   <p className="text-sm text-gray-600 mt-2">
-                    Date: {new Date(invoice.invoice_date).toLocaleDateString()}
+                    Date: {formatDateTime(invoice.invoice_date)}
                   </p>
                 </div>
               </div>

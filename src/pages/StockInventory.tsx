@@ -25,6 +25,27 @@ interface SalesRecord {
   total_price: number;
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
 export default function StockInventory() {
   const { profile } = useAuth();
   const { t } = useLanguage();
@@ -176,7 +197,7 @@ export default function StockInventory() {
     if (type === 'sales') {
       csv = 'Date,Customer Name,Item Name,Quantity,Unit Price,Total Price\n';
       salesRecords.forEach((record) => {
-        const date = new Date(record.invoice_date).toLocaleDateString();
+        const date = formatDateTime(record.invoice_date);
         csv += `${date},"${record.customer_name}","${record.item_name}",${record.quantity},${record.unit_price},${record.total_price}\n`;
       });
       filename = `sales_report_${startDate}_to_${endDate}.csv`;
@@ -188,7 +209,7 @@ export default function StockInventory() {
 
       filtered.forEach((count) => {
         const item = stockItems.find(i => i.id === count.stock_item_id);
-        const date = new Date(count.count_date).toLocaleDateString();
+        const date = formatDate(count.count_date);
         csv += `${date},"${item?.name || 'Unknown'}",${count.system_quantity},${count.actual_quantity},${count.difference},"${count.notes || ''}"\n`;
       });
       filename = `stock_counts_${new Date().toISOString().split('T')[0]}.csv`;
@@ -350,7 +371,7 @@ export default function StockInventory() {
                     return (
                       <tr key={count.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm text-gray-900">
-                          {new Date(count.count_date).toLocaleDateString()}
+                          {formatDate(count.count_date)}
                         </td>
                         <td className="py-3 px-4 text-sm font-semibold text-gray-900">
                           {item?.name || 'Unknown'}
@@ -421,7 +442,7 @@ export default function StockInventory() {
                     salesRecords.map((record, index) => (
                       <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm text-gray-900">
-                          {new Date(record.invoice_date).toLocaleDateString()}
+                          {formatDateTime(record.invoice_date)}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-900">{record.customer_name}</td>
                         <td className="py-3 px-4 text-sm font-semibold text-gray-900">{record.item_name}</td>
