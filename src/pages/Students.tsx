@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType } from '../lib/supabase';
-import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText } from 'lucide-react';
+import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2 } from 'lucide-react';
 import InvoiceModal from '../components/InvoiceModal';
+import SearchableSelect from '../components/SearchableSelect';
+import { nationalities } from '../data/nationalities';
 
 interface StudentWithDetails extends Student {
   branch?: Branch;
@@ -54,6 +56,8 @@ export default function Students() {
     package_start: '',
     package_end: '',
     notes: '',
+    photo_url: '',
+    trial_student: false,
   });
 
   useEffect(() => {
@@ -313,8 +317,47 @@ export default function Students() {
       package_start: new Date().toISOString().split('T')[0],
       package_end: '',
       notes: '',
+      photo_url: '',
+      trial_student: false,
     });
     setShowAddModal(true);
+  }
+
+  function openEditModal(student: StudentWithDetails) {
+    setEditingStudent(student);
+    setFormData({
+      full_name: student.full_name,
+      phone1: student.phone1 || '',
+      whatsapp_number: student.whatsapp_number || '',
+      nationality: student.nationality || '',
+      address: student.address || '',
+      package_id: student.package_id || '',
+      branch_id: student.branch_id,
+      package_start: student.package_start || '',
+      package_end: student.package_end || '',
+      notes: student.notes || '',
+      photo_url: student.photo_url || '',
+      trial_student: student.trial_student || false,
+    });
+    setShowAddModal(true);
+  }
+
+  async function handleDeleteStudent(student: StudentWithDetails) {
+    if (!confirm(`Are you sure you want to delete ${student.full_name}?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .eq('id', student.id);
+
+      if (error) throw error;
+      alert('Student deleted successfully!');
+      loadData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      alert(`Error deleting student: ${error?.message || 'Unknown error'}`);
+    }
   }
 
   async function handleSaveStudent() {
@@ -335,6 +378,8 @@ export default function Students() {
         package_start: formData.package_start,
         package_end: formData.package_end,
         notes: formData.notes,
+        photo_url: formData.photo_url,
+        trial_student: formData.trial_student,
         is_active: true,
       };
 
@@ -530,6 +575,22 @@ export default function Students() {
                                   Expire
                                 </button>
                               )}
+                              <button
+                                onClick={() => openEditModal(student)}
+                                className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStudent(student)}
+                                className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
                             </>
                           )}
                         </div>
@@ -774,14 +835,12 @@ export default function Students() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    {t('students.nationality')}
-                  </label>
-                  <input
-                    type="text"
+                  <SearchableSelect
+                    options={nationalities}
                     value={formData.nationality}
-                    onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    onChange={(value) => setFormData({ ...formData, nationality: value })}
+                    placeholder="Select nationality..."
+                    label={t('students.nationality')}
                   />
                 </div>
 
@@ -860,6 +919,33 @@ export default function Students() {
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Photo URL
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.photo_url}
+                    onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.trial_student}
+                      onChange={(e) => setFormData({ ...formData, trial_student: e.target.checked })}
+                      className="w-4 h-4 text-red-700 border-gray-300 rounded focus:ring-red-700"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">
+                      Trial Student
+                    </span>
+                  </label>
                 </div>
 
                 <div className="md:col-span-2">
