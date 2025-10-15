@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Student, Branch, Package as PackageType } from '../lib/supabase';
+import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType } from '../lib/supabase';
 import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText } from 'lucide-react';
+import InvoiceModal from '../components/InvoiceModal';
 
 interface StudentWithDetails extends Student {
   branch?: Branch;
@@ -28,6 +29,9 @@ export default function Students() {
     payment_method: 'cash' as 'cash' | 'card' | 'bank_transfer',
     notes: '',
   });
+  const [settings, setSettings] = useState<SettingsType | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [generatedInvoice, setGeneratedInvoice] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -41,15 +45,17 @@ export default function Students() {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
 
-      const [studentsRes, branchesRes, packagesRes] = await Promise.all([
+      const [studentsRes, branchesRes, packagesRes, settingsRes] = await Promise.all([
         studentsQuery,
         supabase.from('branches').select('*').order('name'),
         supabase.from('packages').select('*').order('name'),
+        supabase.from('settings').select('*').maybeSingle(),
       ]);
 
       if (studentsRes.data) setStudents(studentsRes.data as StudentWithDetails[]);
       if (branchesRes.data) setBranches(branchesRes.data as Branch[]);
       if (packagesRes.data) setPackages(packagesRes.data as PackageType[]);
+      if (settingsRes.data) setSettings(settingsRes.data as SettingsType);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -239,8 +245,30 @@ export default function Students() {
 
       if (invoiceError) console.warn('Invoice creation warning:', invoiceError);
 
-      alert(`Package renewed successfully!\nInvoice #${invoiceNumber} generated\nAmount: ${finalAmount} ${selectedPackage?.currency || 'AED'}`);
+      const invoiceForDisplay = {
+        invoice_number: invoiceNumber,
+        invoice_date: today.toISOString(),
+        customer_name: selectedStudent.full_name,
+        customer_phone: selectedStudent.phone1,
+        customer_email: selectedStudent.email || '',
+        items: [
+          {
+            description: `Package Renewal - ${selectedPackage?.name || 'Package'}`,
+            quantity: 1,
+            price: amount,
+            total: amount,
+          }
+        ],
+        subtotal: amount,
+        vat_amount: 0,
+        total_amount: finalAmount,
+        payment_method: renewalData.payment_method,
+        notes: discount > 0 ? `Discount Applied: ${discount.toFixed(2)} ${selectedPackage?.currency || 'AED'}\n${renewalData.notes || ''}` : renewalData.notes || '',
+      };
+
+      setGeneratedInvoice(invoiceForDisplay);
       setShowRenewalModal(false);
+      setShowInvoiceModal(true);
       setSelectedStudent(null);
       loadData();
     } catch (error) {
@@ -587,6 +615,17 @@ export default function Students() {
             </div>
           </div>
         </div>
+      )}
+
+      {showInvoiceModal && generatedInvoice && settings && (
+        <InvoiceModal
+          invoice={generatedInvoice}
+          settings={settings}
+          onClose={() => {
+            setShowInvoiceModal(false);
+            setGeneratedInvoice(null);
+          }}
+        />
       )}
     </div>
   );
