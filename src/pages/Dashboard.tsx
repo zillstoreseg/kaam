@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Student, Payment, Settings as SettingsType, Package as PackageType, AttendanceAlert } from '../lib/supabase';
+import { supabase, Student, Settings as SettingsType, Package as PackageType, AttendanceAlert } from '../lib/supabase';
 import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp, X, AlertTriangle, Snowflake, Play, Calendar, RefreshCw } from 'lucide-react';
 
 interface Stats {
@@ -23,6 +24,7 @@ interface StudentWithPackage extends Student {
 export default function Dashboard() {
   const { profile } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({
     totalStudents: 0,
     totalBranches: 0,
@@ -36,9 +38,11 @@ export default function Dashboard() {
   });
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAllStudentsModal, setShowAllStudentsModal] = useState(false);
   const [showExpiringModal, setShowExpiringModal] = useState(false);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [allStudents, setAllStudents] = useState<StudentWithPackage[]>([]);
   const [expiringStudents, setExpiringStudents] = useState<StudentWithPackage[]>([]);
   const [alerts, setAlerts] = useState<(AttendanceAlert & { student?: Student })[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithPackage | null>(null);
@@ -62,29 +66,66 @@ export default function Dashboard() {
       firstDayOfMonth.setHours(0, 0, 0, 0);
       const firstDayStr = firstDayOfMonth.toISOString();
 
-      let studentsQuery = supabase.from('students').select('*', { count: 'exact' });
-      let branchesQuery = supabase.from('branches').select('*', { count: 'exact' });
-      let attendanceQuery = supabase.from('attendance').select('*', { count: 'exact' }).eq('attendance_date', today);
+      // Base queries
+      let studentsQuery = supabase.from('students').select('*', { count: 'exact', head: false });
+      let branchesQuery = supabase.from('branches').select('*', { count: 'exact', head: false });
+      let attendanceQuery = supabase.from('attendance').select('*', { count: 'exact', head: false }).eq('attendance_date', today);
       let paymentsQuery = supabase.from('payments').select('amount, currency');
 
-      if (profile?.role !== 'super_admin' && profile?.role !== 'accountant' && profile?.branch_id) {
+      // Apply branch filter if not super_admin
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
         attendanceQuery = attendanceQuery.eq('branch_id', profile.branch_id);
         paymentsQuery = paymentsQuery.eq('branch_id', profile.branch_id);
       }
 
-      const [studentsRes, branchesRes, attendanceRes, paymentsRes, activeStudentsRes, expiringRes, monthlyPaymentsRes, joinedTodayRes, trialRes, settingsRes] = await Promise.all([
-        studentsQuery,
-        branchesQuery,
-        attendanceQuery,
-        paymentsQuery,
-        studentsQuery.eq('is_active', true),
-        studentsQuery.eq('is_active', true).lte('package_end', nextMonthStr).gte('package_end', today),
-        paymentsQuery.gte('created_at', firstDayStr),
-        studentsQuery.eq('joined_date', today),
-        studentsQuery.eq('trial_student', true).eq('is_active', true),
-        supabase.from('settings').select('*').maybeSingle(),
-      ]);
+      // Execute all queries
+      const studentsRes = await studentsQuery;
+      const branchesRes = await branchesQuery;
+      const attendanceRes = await attendanceQuery;
+      const paymentsRes = await paymentsQuery;
+
+      // Get active students
+      let activeQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_active', true);
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        activeQuery = activeQuery.eq('branch_id', profile.branch_id);
+      }
+      const activeStudentsRes = await activeQuery;
+
+      // Get expiring students
+      let expiringQuery = supabase.from('students').select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .lte('package_end', nextMonthStr)
+        .gte('package_end', today);
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        expiringQuery = expiringQuery.eq('branch_id', profile.branch_id);
+      }
+      const expiringRes = await expiringQuery;
+
+      // Get monthly payments
+      let monthlyPaymentsQuery = supabase.from('payments').select('amount, currency').gte('created_at', firstDayStr);
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        monthlyPaymentsQuery = monthlyPaymentsQuery.eq('branch_id', profile.branch_id);
+      }
+      const monthlyPaymentsRes = await monthlyPaymentsQuery;
+
+      // Get joined today
+      let joinedTodayQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('joined_date', today);
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        joinedTodayQuery = joinedTodayQuery.eq('branch_id', profile.branch_id);
+      }
+      const joinedTodayRes = await joinedTodayQuery;
+
+      // Get trial students
+      let trialQuery = supabase.from('students').select('*', { count: 'exact', head: true })
+        .eq('trial_student', true)
+        .eq('is_active', true);
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        trialQuery = trialQuery.eq('branch_id', profile.branch_id);
+      }
+      const trialRes = await trialQuery;
+
+      const settingsRes = await supabase.from('settings').select('*').maybeSingle();
 
       const monthlyRev = monthlyPaymentsRes.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
       const totalRev = paymentsRes.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
@@ -122,6 +163,26 @@ export default function Dashboard() {
       setAlerts(data || []);
     } catch (error) {
       console.error('Error loading alerts:', error);
+    }
+  }
+
+  async function loadAllStudents() {
+    try {
+      let query = supabase
+        .from('students')
+        .select('*, package:packages(*)')
+        .order('full_name');
+
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        query = query.eq('branch_id', profile.branch_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setAllStudents(data || []);
+      setShowAllStudentsModal(true);
+    } catch (error) {
+      console.error('Error loading students:', error);
     }
   }
 
@@ -163,6 +224,25 @@ export default function Dashboard() {
     }
   }
 
+  async function markAsExpired(student: StudentWithPackage) {
+    if (!confirm(`Mark ${student.full_name} as expired (deactivate)?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ is_active: false })
+        .eq('id', student.id);
+
+      if (error) throw error;
+      alert('Student marked as expired');
+      loadAllStudents();
+      loadStats();
+    } catch (error) {
+      console.error('Error marking as expired:', error);
+      alert('Error marking student as expired');
+    }
+  }
+
   async function renewPackage(student: StudentWithPackage, newPackageId: string) {
     try {
       const selectedPackage = packages.find(p => p.id === newPackageId);
@@ -178,13 +258,15 @@ export default function Dashboard() {
           package_id: newPackageId,
           package_start: today.toISOString().split('T')[0],
           package_end: endDate.toISOString().split('T')[0],
+          is_active: true,
         })
         .eq('id', student.id);
 
       if (error) throw error;
       alert('Package renewed successfully!');
       loadStats();
-      loadExpiringStudents();
+      loadAllStudents();
+      if (showExpiringModal) loadExpiringStudents();
     } catch (error) {
       console.error('Error renewing package:', error);
       alert('Error renewing package');
@@ -226,7 +308,8 @@ export default function Dashboard() {
       setShowFreezeModal(false);
       setSelectedStudent(null);
       setFreezeData({ start: '', end: '', reason: '' });
-      loadExpiringStudents();
+      loadAllStudents();
+      if (showExpiringModal) loadExpiringStudents();
     } catch (error) {
       console.error('Error freezing membership:', error);
       alert('Error freezing membership');
@@ -259,7 +342,8 @@ export default function Dashboard() {
       if (historyError) throw historyError;
 
       alert('Membership unfrozen successfully!');
-      loadExpiringStudents();
+      loadAllStudents();
+      if (showExpiringModal) loadExpiringStudents();
     } catch (error) {
       console.error('Error unfreezing membership:', error);
       alert('Error unfreezing membership');
@@ -284,6 +368,107 @@ export default function Dashboard() {
 
   if (loading) return <div className="text-center py-12">Loading...</div>;
 
+  const renderStudentCard = (student: StudentWithPackage, showExpireButton: boolean = true) => {
+    const today = new Date();
+    const packageEnd = new Date(student.package_end);
+    const daysRemaining = Math.ceil((packageEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const isExpired = daysRemaining < 0;
+    const isFrozen = student.is_frozen;
+
+    return (
+      <div key={student.id} className={`border rounded-lg p-4 ${isExpired ? 'border-red-300 bg-red-50' : isFrozen ? 'border-blue-300 bg-blue-50' : daysRemaining <= 7 ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white'}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="font-bold text-gray-900">{student.full_name}</h3>
+              {isFrozen && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
+                  <Snowflake className="w-3 h-3" />
+                  Frozen
+                </span>
+              )}
+              {isExpired && (
+                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded">
+                  EXPIRED
+                </span>
+              )}
+              {!student.is_active && (
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">
+                  INACTIVE
+                </span>
+              )}
+            </div>
+            <div className="mt-2 text-sm text-gray-700 space-y-1">
+              <p><strong>Phone:</strong> {student.phone1}</p>
+              <p><strong>Package:</strong> {student.package?.name || 'N/A'}</p>
+              <p><strong>Package End:</strong> {packageEnd.toLocaleDateString()}</p>
+              {!isExpired && student.is_active && (
+                <p className={`font-semibold ${daysRemaining <= 7 ? 'text-yellow-700' : 'text-green-700'}`}>
+                  {daysRemaining} days remaining
+                </p>
+              )}
+              {isExpired && (
+                <p className="text-red-700 font-semibold">Expired {Math.abs(daysRemaining)} days ago</p>
+              )}
+              {isFrozen && student.freeze_start_date && student.freeze_end_date && (
+                <p className="text-blue-700">
+                  <strong>Frozen:</strong> {new Date(student.freeze_start_date).toLocaleDateString()} - {new Date(student.freeze_end_date).toLocaleDateString()}
+                  {student.freeze_reason && <span className="block text-xs mt-1">Reason: {student.freeze_reason}</span>}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 ml-4">
+            {isFrozen ? (
+              <button
+                onClick={() => unfreezeMembership(student)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition whitespace-nowrap"
+              >
+                <Play className="w-4 h-4" />
+                Unfreeze
+              </button>
+            ) : (
+              <>
+                {student.is_active && (
+                  <button
+                    onClick={() => {
+                      setSelectedStudent(student);
+                      setShowFreezeModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition whitespace-nowrap"
+                  >
+                    <Snowflake className="w-4 h-4" />
+                    Freeze
+                  </button>
+                )}
+                {(isExpired || !student.is_active) && (
+                  <select
+                    onChange={(e) => e.target.value && renewPackage(student, e.target.value)}
+                    defaultValue=""
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition cursor-pointer"
+                  >
+                    <option value="">Renew</option>
+                    {packages.map(pkg => (
+                      <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
+                    ))}
+                  </select>
+                )}
+                {showExpireButton && student.is_active && !isExpired && (
+                  <button
+                    onClick={() => markAsExpired(student)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold transition whitespace-nowrap"
+                  >
+                    Mark Expired
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <div className="mb-8">
@@ -304,11 +489,12 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition" onClick={() => { loadAllStudents(); loadPackages(); }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">{t('dashboard.totalStudents')}</p>
               <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalStudents}</p>
+              <p className="text-xs text-gray-500 mt-1">Click to view all</p>
             </div>
             <Users className="w-12 h-12 text-blue-600" />
           </div>
@@ -398,6 +584,34 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* All Students Modal */}
+      {showAllStudentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">All Students</h2>
+                <p className="text-sm text-gray-600 mt-1">{allStudents.length} total student{allStudents.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button onClick={() => setShowAllStudentsModal(false)}>
+                <X className="w-6 h-6 text-gray-600 hover:text-gray-900" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {allStudents.length === 0 ? (
+                <p className="text-center text-gray-500 py-12">No students found</p>
+              ) : (
+                <div className="space-y-4">
+                  {allStudents.map((student) => renderStudentCard(student, true))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expiring Students Modal */}
       {showExpiringModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
@@ -416,81 +630,7 @@ export default function Dashboard() {
                 <p className="text-center text-gray-500 py-12">No students with expiring packages</p>
               ) : (
                 <div className="space-y-4">
-                  {expiringStudents.map((student) => {
-                    const daysUntilExpiry = Math.ceil((new Date(student.package_end).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    const isExpired = daysUntilExpiry < 0;
-                    const isFrozen = student.is_frozen;
-
-                    return (
-                      <div key={student.id} className={`border rounded-lg p-4 ${isExpired ? 'border-red-300 bg-red-50' : isFrozen ? 'border-blue-300 bg-blue-50' : 'border-yellow-300 bg-yellow-50'}`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <h3 className="font-bold text-gray-900">{student.full_name}</h3>
-                              {isFrozen && (
-                                <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
-                                  <Snowflake className="w-3 h-3" />
-                                  Frozen
-                                </span>
-                              )}
-                              {isExpired && (
-                                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded">
-                                  EXPIRED
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-2 text-sm text-gray-700 space-y-1">
-                              <p><strong>Phone:</strong> {student.phone1}</p>
-                              <p><strong>Package:</strong> {student.package?.name || 'N/A'}</p>
-                              <p><strong>Package End:</strong> {new Date(student.package_end).toLocaleDateString()}</p>
-                              {!isExpired && <p className="text-yellow-700 font-semibold">{daysUntilExpiry} days remaining</p>}
-                              {isExpired && <p className="text-red-700 font-semibold">Expired {Math.abs(daysUntilExpiry)} days ago</p>}
-                              {isFrozen && student.freeze_start_date && student.freeze_end_date && (
-                                <p className="text-blue-700">
-                                  <strong>Frozen:</strong> {new Date(student.freeze_start_date).toLocaleDateString()} - {new Date(student.freeze_end_date).toLocaleDateString()}
-                                  {student.freeze_reason && <span className="block text-xs mt-1">Reason: {student.freeze_reason}</span>}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2 ml-4">
-                            {isFrozen ? (
-                              <button
-                                onClick={() => unfreezeMembership(student)}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition"
-                              >
-                                <Play className="w-4 h-4" />
-                                Unfreeze
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setSelectedStudent(student);
-                                    setShowFreezeModal(true);
-                                  }}
-                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition"
-                                >
-                                  <Snowflake className="w-4 h-4" />
-                                  Freeze
-                                </button>
-                                <select
-                                  onChange={(e) => e.target.value && renewPackage(student, e.target.value)}
-                                  defaultValue=""
-                                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition cursor-pointer"
-                                >
-                                  <option value="">Renew Package</option>
-                                  {packages.map(pkg => (
-                                    <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
-                                  ))}
-                                </select>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {expiringStudents.map((student) => renderStudentCard(student, false))}
                 </div>
               )}
             </div>
@@ -498,6 +638,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Freeze Modal */}
       {showFreezeModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -565,6 +706,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Alerts Modal */}
       {showAlertsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
