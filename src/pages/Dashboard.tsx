@@ -52,20 +52,27 @@ export default function Dashboard() {
         .select('amount')
         .gte('payment_date', firstDayStr)
         .lte('payment_date', today);
+      let invoicesQuery = supabase
+        .from('invoices')
+        .select('amount_paid')
+        .gte('invoice_date', firstDayStr)
+        .lte('invoice_date', today);
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
         attendanceQuery = attendanceQuery.eq('branch_id', profile.branch_id);
         paymentsQuery = paymentsQuery.eq('branch_id', profile.branch_id);
+        invoicesQuery = invoicesQuery.eq('branch_id', profile.branch_id);
       }
 
-      const [studentsRes, attendanceRes, branchesRes, paymentsRes] = await Promise.all([
+      const [studentsRes, attendanceRes, branchesRes, paymentsRes, invoicesRes] = await Promise.all([
         studentsQuery,
         attendanceQuery,
         profile?.role === 'super_admin'
           ? supabase.from('branches').select('*', { count: 'exact' })
           : Promise.resolve({ count: 0 }),
         paymentsQuery,
+        invoicesQuery,
       ]);
 
       const students = (studentsRes.data as Student[]) || [];
@@ -76,7 +83,9 @@ export default function Dashboard() {
       const joinedToday = students.filter((s) => s.joined_date === today).length;
       const trialStudents = students.filter((s) => s.trial_student).length;
 
-      const monthlyRevenue = (paymentsRes.data as Payment[])?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+      const paymentsRevenue = (paymentsRes.data as Payment[])?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+      const invoicesRevenue = (invoicesRes.data as any[])?.reduce((sum, inv) => sum + Number(inv.amount_paid), 0) || 0;
+      const monthlyRevenue = paymentsRevenue + invoicesRevenue;
 
       setStats({
         totalStudents: studentsRes.count || 0,

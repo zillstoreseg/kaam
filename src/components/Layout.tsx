@@ -62,11 +62,12 @@ export default function Layout() {
     { name: t('nav.attendance'), href: '/attendance', icon: ClipboardCheck, roles: ['super_admin', 'branch_manager', 'coach'] },
     { name: t('nav.packages'), href: '/packages', icon: Package, roles: ['super_admin'] },
     { name: t('nav.branches'), href: '/branches', icon: Building2, roles: ['super_admin'] },
-    { name: 'Schemes', href: '/schemes', icon: Award, roles: ['super_admin'] },
-    { name: 'Stock', href: '/stock', icon: ShoppingBag, roles: ['super_admin', 'stock_manager'] },
-    { name: 'Sales', href: '/sales', icon: Receipt, roles: ['super_admin', 'stock_manager', 'branch_manager'] },
+    { name: t('nav.schemes'), href: '/schemes', icon: Award, roles: ['super_admin'] },
+    { name: t('nav.stock'), href: '/stock', icon: ShoppingBag, roles: ['super_admin', 'stock_manager'] },
+    { name: t('nav.sales'), href: '/sales', icon: Receipt, roles: ['super_admin', 'stock_manager', 'branch_manager'] },
+    { name: t('nav.invoices'), href: '/invoices', icon: FileText, roles: ['super_admin', 'branch_manager', 'stock_manager', 'accountant'] },
     { name: t('nav.reports'), href: '/reports', icon: FileText, roles: ['super_admin', 'branch_manager', 'accountant'] },
-    { name: 'Users', href: '/users', icon: UserCog, roles: ['super_admin'] },
+    { name: t('nav.users'), href: '/users', icon: UserCog, roles: ['super_admin'] },
     { name: t('nav.settings'), href: '/settings', icon: Settings, roles: ['super_admin'] },
   ];
 
