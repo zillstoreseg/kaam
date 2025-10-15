@@ -19,6 +19,7 @@ import {
   Award,
   ShoppingBag,
   Receipt,
+  ClipboardList,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -88,6 +89,7 @@ export default function Layout() {
     { name: t('nav.branches'), href: '/branches', icon: Building2, page: 'branches' as PageName },
     { name: t('nav.schemes'), href: '/schemes', icon: Award, page: 'schemes' as PageName },
     { name: t('nav.stock'), href: '/stock', icon: ShoppingBag, page: 'stock' as PageName },
+    { name: 'Stock Inventory', href: '/stock-inventory', icon: ClipboardList, page: 'stock' as PageName },
     { name: t('nav.sales'), href: '/sales', icon: Receipt, page: 'sales' as PageName },
     { name: t('nav.invoices'), href: '/invoices', icon: FileText, page: 'invoices' as PageName },
     { name: t('nav.reports'), href: '/reports', icon: FileText, page: 'reports' as PageName },
