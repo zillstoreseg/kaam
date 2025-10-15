@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { Save, Building2, FileText } from 'lucide-react';
+import { Save, Building2, FileText, MessageSquare } from 'lucide-react';
 
 export default function Settings() {
   const { t } = useLanguage();
@@ -23,6 +23,13 @@ export default function Settings() {
     notifications_enabled: false,
     primary_color: '#B91C1C',
     accent_color: '#F59E0B',
+    message_template_expired: '',
+    message_template_registration: '',
+    message_template_renewal: '',
+    message_template_invoice: '',
+    invoice_footer_text: '',
+    auto_send_expired_message: false,
+    expired_message_days_interval: 7,
   });
 
   useEffect(() => {
@@ -50,6 +57,13 @@ export default function Settings() {
           notifications_enabled: data.notifications_enabled || false,
           primary_color: data.primary_color || '#B91C1C',
           accent_color: data.accent_color || '#F59E0B',
+          message_template_expired: data.message_template_expired || 'Dear {student_name}, your package expired on {expiry_date}. It has been {days_expired} days since expiry. Please renew your package to continue training. Contact us at {academy_phone}.',
+          message_template_registration: data.message_template_registration || 'Welcome {student_name}! Thank you for joining {academy_name}. Your package starts on {package_start} and ends on {package_end}. We look forward to training with you!',
+          message_template_renewal: data.message_template_renewal || 'Dear {student_name}, your package has been successfully renewed! Your new package starts on {package_start} and ends on {package_end}. Thank you for continuing with us!',
+          message_template_invoice: data.message_template_invoice || 'Thank you for your purchase! Invoice #{invoice_number} for {total_amount}. Visit us at {academy_address}. Contact: {academy_phone}',
+          invoice_footer_text: data.invoice_footer_text || 'Thank you for your business! We appreciate your trust in us.',
+          auto_send_expired_message: data.auto_send_expired_message || false,
+          expired_message_days_interval: data.expired_message_days_interval || 7,
         });
       }
     } catch (error) {
@@ -303,6 +317,135 @@ export default function Settings() {
               <label htmlFor="notifications" className="text-sm font-medium text-gray-700">
                 Enable Notifications (Future Feature)
               </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <MessageSquare className="w-6 h-6 text-red-700" />
+            <h2 className="text-xl font-bold text-gray-900">WhatsApp Message Templates</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Expired Package Message
+              </label>
+              <textarea
+                value={formData.message_template_expired}
+                onChange={(e) => setFormData({ ...formData, message_template_expired: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="Message to send when package expires"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Available variables: {'{student_name}'}, {'{expiry_date}'}, {'{days_expired}'}, {'{academy_name}'}, {'{academy_phone}'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Registration Welcome Message
+              </label>
+              <textarea
+                value={formData.message_template_registration}
+                onChange={(e) => setFormData({ ...formData, message_template_registration: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="Welcome message for new registrations"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Available variables: {'{student_name}'}, {'{academy_name}'}, {'{package_start}'}, {'{package_end}'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Package Renewal Message
+              </label>
+              <textarea
+                value={formData.message_template_renewal}
+                onChange={(e) => setFormData({ ...formData, message_template_renewal: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="Message after package renewal"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Available variables: {'{student_name}'}, {'{package_start}'}, {'{package_end}'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Invoice Message
+              </label>
+              <textarea
+                value={formData.message_template_invoice}
+                onChange={(e) => setFormData({ ...formData, message_template_invoice: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="Message to send with invoice"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Available variables: {'{invoice_number}'}, {'{total_amount}'}, {'{academy_address}'}, {'{academy_phone}'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Invoice Footer Text
+              </label>
+              <textarea
+                value={formData.invoice_footer_text}
+                onChange={(e) => setFormData({ ...formData, invoice_footer_text: e.target.value })}
+                rows={2}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="Footer text on printed invoices"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This text will appear at the bottom of all invoices
+              </p>
+            </div>
+
+            <div className="border-t pt-6">
+              <h3 className="font-medium text-gray-900 mb-4">Automatic Messaging</h3>
+
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="auto_send"
+                  checked={formData.auto_send_expired_message}
+                  onChange={(e) =>
+                    setFormData({ ...formData, auto_send_expired_message: e.target.checked })
+                  }
+                  className="w-5 h-5 text-red-700 rounded focus:ring-red-700"
+                />
+                <label htmlFor="auto_send" className="text-sm font-medium text-gray-700">
+                  Automatically send expired package reminders
+                </label>
+              </div>
+
+              {formData.auto_send_expired_message && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Send reminder every (days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={formData.expired_message_days_interval}
+                    onChange={(e) =>
+                      setFormData({ ...formData, expired_message_days_interval: parseInt(e.target.value) || 7 })
+                    }
+                    className="w-32 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    System will remind expired students every {formData.expired_message_days_interval} days
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

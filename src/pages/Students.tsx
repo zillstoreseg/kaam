@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Student, Branch, Package, Scheme } from '../lib/supabase';
-import { Search, Plus, Edit2, Trash2, X, Upload, Camera, MessageCircle, Download } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, X, Upload, Camera, MessageCircle, Download, RefreshCw, Clock } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
 import { nationalities } from '../data/nationalities';
 
@@ -22,6 +22,14 @@ export default function Students() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [exportBranchId, setExportBranchId] = useState<string>('');
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewingStudent, setRenewingStudent] = useState<Student | null>(null);
+  const [renewalData, setRenewalData] = useState({
+    package_id: '',
+    package_start: '',
+    package_end: '',
+    notes: '',
+  });
   const [formData, setFormData] = useState({
     full_name: '',
     phone1: '',
@@ -284,6 +292,94 @@ export default function Students() {
     window.open(`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=${message}`, '_blank');
   }
 
+  function calculateDaysExpired(packageEnd: string | null): number {
+    if (!packageEnd) return 0;
+    const endDate = new Date(packageEnd);
+    const today = new Date();
+    const diffTime = today.getTime() - endDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  }
+
+  function openRenewalModal(student: Student) {
+    setRenewingStudent(student);
+    setRenewalData({
+      package_id: student.package_id || '',
+      package_start: new Date().toISOString().split('T')[0],
+      package_end: '',
+      notes: '',
+    });
+    setShowRenewalModal(true);
+  }
+
+  async function handleRenewal() {
+    if (!renewingStudent || !renewalData.package_id || !renewalData.package_start || !renewalData.package_end) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const { error: renewalError } = await supabase.from('student_renewals').insert({
+        student_id: renewingStudent.id,
+        old_package_id: renewingStudent.package_id,
+        new_package_id: renewalData.package_id,
+        old_package_end: renewingStudent.package_end,
+        new_package_start: renewalData.package_start,
+        new_package_end: renewalData.package_end,
+        renewed_by: profile?.id,
+        notes: renewalData.notes,
+      });
+
+      if (renewalError) throw renewalError;
+
+      const { error: studentError } = await supabase
+        .from('students')
+        .update({
+          package_id: renewalData.package_id,
+          package_start: renewalData.package_start,
+          package_end: renewalData.package_end,
+          is_active: true,
+        })
+        .eq('id', renewingStudent.id);
+
+      if (studentError) throw studentError;
+
+      setShowRenewalModal(false);
+      setRenewingStudent(null);
+      loadData();
+      alert('Package renewed successfully!');
+    } catch (error) {
+      console.error('Error renewing package:', error);
+      alert('Error renewing package');
+    }
+  }
+
+  async function sendExpiredMessage(student: Student) {
+    const whatsapp = student.whatsapp_number || student.phone1;
+    if (!whatsapp) {
+      alert('No WhatsApp number available');
+      return;
+    }
+
+    const daysExpired = calculateDaysExpired(student.package_end);
+    const message = `Dear ${student.full_name}, your package expired on ${student.package_end}. It has been ${daysExpired} days since expiry. Please renew your package to continue training.`;
+
+    try {
+      await supabase.from('whatsapp_messages').insert({
+        student_id: student.id,
+        message_type: 'expired',
+        message_content: message,
+        sent_by: profile?.id,
+        branch_id: student.branch_id,
+      });
+    } catch (error) {
+      console.error('Error logging message:', error);
+    }
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=${encodedMessage}`, '_blank');
+  }
+
   async function exportToExcel() {
     try {
       let query = supabase.from('students').select(`
@@ -497,19 +593,45 @@ export default function Students() {
                     {branches.find((b) => b.id === student.branch_id)?.name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        student.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {student.is_active ? t('students.active') : t('students.inactive')}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          student.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {student.is_active ? t('students.active') : t('students.inactive')}
+                      </span>
+                      {student.package_end && calculateDaysExpired(student.package_end) > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-orange-600">
+                          <Clock className="w-3 h-3" />
+                          <span>{calculateDaysExpired(student.package_end)} days expired</span>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   {canEdit && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex gap-2">
+                        {student.package_end && calculateDaysExpired(student.package_end) > 0 && (
+                          <button
+                            onClick={() => sendExpiredMessage(student)}
+                            className="text-orange-600 hover:text-orange-900"
+                            title="Send Expiry Reminder"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(!student.is_active || (student.package_end && calculateDaysExpired(student.package_end) > 0)) && (
+                          <button
+                            onClick={() => openRenewalModal(student)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Renew Package"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditModal(student)}
                           className="text-blue-600 hover:text-blue-900"
@@ -814,6 +936,113 @@ export default function Students() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showRenewalModal && renewingStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Renew Package - {renewingStudent.full_name}</h2>
+              <button
+                onClick={() => setShowRenewalModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {renewingStudent.package_end && (
+              <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>Previous Package:</strong> {packages.find(p => p.id === renewingStudent.package_id)?.name}
+                </p>
+                <p className="text-sm text-orange-800">
+                  <strong>Expired:</strong> {renewingStudent.package_end} ({calculateDaysExpired(renewingStudent.package_end)} days ago)
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Package *
+                </label>
+                <select
+                  value={renewalData.package_id}
+                  onChange={(e) => setRenewalData({ ...renewalData, package_id: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Package</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.name} - {pkg.price} {pkg.currency}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Package Start *
+                  </label>
+                  <input
+                    type="date"
+                    value={renewalData.package_start}
+                    onChange={(e) => setRenewalData({ ...renewalData, package_start: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Package End *
+                  </label>
+                  <input
+                    type="date"
+                    value={renewalData.package_end}
+                    onChange={(e) => setRenewalData({ ...renewalData, package_end: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={renewalData.notes}
+                  onChange={(e) => setRenewalData({ ...renewalData, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
+                  placeholder="Any renewal notes..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowRenewalModal(false)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRenewal}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Renew Package
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

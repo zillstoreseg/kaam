@@ -519,8 +519,8 @@ export default function Invoices() {
               )}
 
               <div className="text-center text-sm text-gray-500 mt-8 pt-4 border-t">
-                {settings?.company_slogan && <p className="mb-2">{settings.company_slogan}</p>}
-                <p>{t('invoices.thankYou')}</p>
+                {settings?.invoice_footer_text && <p className="mb-2">{settings.invoice_footer_text}</p>}
+                {!settings?.invoice_footer_text && <p>{t('invoices.thankYou')}</p>}
               </div>
             </div>
           </div>
