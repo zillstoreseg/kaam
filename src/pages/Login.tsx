@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { supabase, Settings as SettingsType } from '../lib/supabase';
 import { LogIn } from 'lucide-react';
 
 export default function Login() {
@@ -9,9 +10,23 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [settings, setSettings] = useState<SettingsType | null>(null);
   const { signIn } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const { data } = await supabase.from('settings').select('*').maybeSingle();
+      if (data) setSettings(data as SettingsType);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,11 +47,19 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-700 rounded-full mb-4">
-            <LogIn className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('app.name')}</h1>
-          <p className="text-gray-600 mt-2">{t('app.subtitle')}</p>
+          {settings?.logo_url ? (
+            <img src={settings.logo_url} alt="Logo" className="h-20 mx-auto mb-4" />
+          ) : (
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-700 rounded-full mb-4">
+              <LogIn className="w-8 h-8 text-white" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold text-gray-900">
+            {settings?.academy_name || t('app.name')}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {settings?.company_slogan || t('app.subtitle')}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

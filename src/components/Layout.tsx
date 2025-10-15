@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { supabase, Settings as SettingsType } from '../lib/supabase';
 import {
   LayoutDashboard,
   Users,
@@ -23,11 +24,25 @@ import {
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [settings, setSettings] = useState<SettingsType | null>(null);
   const langMenuRef = useRef<HTMLDivElement>(null);
   const { profile, signOut } = useAuth();
   const { t, language, setLanguage, isRTL } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const { data } = await supabase.from('settings').select('*').maybeSingle();
+      if (data) setSettings(data as SettingsType);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -75,8 +90,18 @@ export default function Layout() {
       <div className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} z-50 lg:z-auto w-64 h-full bg-white shadow-lg transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : isRTL ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col h-full">
           <div className="p-6 border-b">
-            <h1 className="text-2xl font-bold text-red-700">{t('app.name')}</h1>
-            <p className="text-sm text-gray-600">{t('app.subtitle')}</p>
+            {settings?.logo_url && (
+              <img src={settings.logo_url} alt="Logo" className="h-12 mb-3" />
+            )}
+            <h1 className="text-2xl font-bold text-red-700">
+              {settings?.academy_name || t('app.name')}
+            </h1>
+            {settings?.company_slogan && (
+              <p className="text-sm text-gray-600 italic">{settings.company_slogan}</p>
+            )}
+            {!settings?.company_slogan && (
+              <p className="text-sm text-gray-600">{t('app.subtitle')}</p>
+            )}
           </div>
 
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
