@@ -226,7 +226,7 @@ export default function Students() {
         branch_id: selectedStudent.branch_id,
         customer_name: selectedStudent.full_name,
         customer_phone: selectedStudent.phone1,
-        customer_email: selectedStudent.email || '',
+        customer_email: (selectedStudent as any).email || '',
         subtotal: amount,
         vat_rate: 0,
         vat_amount: 0,
@@ -250,7 +250,7 @@ export default function Students() {
         invoice_date: today.toISOString(),
         customer_name: selectedStudent.full_name,
         customer_phone: selectedStudent.phone1,
-        customer_email: selectedStudent.email || '',
+        customer_email: (selectedStudent as any).email || '',
         items: [
           {
             description: `Package Renewal - ${selectedPackage?.name || 'Package'}`,
@@ -271,9 +271,9 @@ export default function Students() {
       setShowInvoiceModal(true);
       setSelectedStudent(null);
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert(`Error processing renewal: ${error.message || 'Unknown error'}`);
+      alert(`Error processing renewal: ${error?.message || 'Unknown error'}`);
     }
   }
 

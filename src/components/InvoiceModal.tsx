@@ -164,7 +164,7 @@ export default function InvoiceModal({ invoice, settings, onClose }: InvoiceModa
                 </div>
                 {invoice.vat_amount > 0 && (
                   <div className="flex justify-between py-2 text-sm border-t border-gray-200">
-                    <span className="text-gray-700">VAT ({settings?.tax_rate || 0}%):</span>
+                    <span className="text-gray-700">VAT (5%):</span>
                     <span className="font-semibold text-gray-900">
                       {invoice.vat_amount.toFixed(2)} {currencySymbol}
                     </span>

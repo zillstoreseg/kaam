@@ -103,8 +103,8 @@ export default function Reports() {
         studentSchemesRes,
       ] = await Promise.all([
         supabase.from('students').select('*').eq('branch_id', branchId),
-        supabase.from('payments').select('amount').eq('branch_id', branchId).gte('payment_date', firstDayStr).lte('payment_date', today),
-        supabase.from('payments').select('amount').eq('branch_id', branchId),
+        supabase.from('invoices').select('total_amount').eq('branch_id', branchId).gte('created_at', firstDayStr),
+        supabase.from('invoices').select('total_amount').eq('branch_id', branchId),
         supabase.from('attendance').select('*', { count: 'exact' }).eq('branch_id', branchId).eq('attendance_date', today),
         supabase.from('attendance').select('*', { count: 'exact' }).eq('branch_id', branchId).gte('attendance_date', weekAgoStr).lte('attendance_date', today),
         supabase.from('schemes').select('*'),
@@ -121,8 +121,8 @@ export default function Reports() {
       const joinedThisWeek = students.filter(s => s.joined_date >= weekAgoStr).length;
       const joinedThisMonth = students.filter(s => s.joined_date >= firstDayStr).length;
 
-      const monthlyRevenue = (paymentsRes.data as Payment[])?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-      const totalRevenue = (allPaymentsRes.data as Payment[])?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const monthlyRevenue = (paymentsRes.data as any[])?.reduce((sum, i) => sum + Number(i.total_amount), 0) || 0;
+      const totalRevenue = (allPaymentsRes.data as any[])?.reduce((sum, i) => sum + Number(i.total_amount), 0) || 0;
 
       const expiringPackages = students.filter(
         s => s.is_active && s.package_end && s.package_end <= nextMonthStr && s.package_end >= today

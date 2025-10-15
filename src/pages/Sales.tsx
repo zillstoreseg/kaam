@@ -167,7 +167,7 @@ export default function Sales() {
 
     setSaving(true);
     try {
-      const { data: invoiceNumber } = await supabase.rpc('generate_invoice_number');
+      const invoiceNumber = `INV-${Date.now()}`;
       const { subtotal, vatAmount, total } = calculateTotals();
 
       const invoiceData = {
@@ -184,7 +184,7 @@ export default function Sales() {
         payment_method: paymentMethod,
         payment_status: 'paid',
         amount_paid: total,
-        sold_by: profile.id,
+        sold_by: profile?.id,
         notes,
         invoice_date: new Date().toISOString(),
       };
