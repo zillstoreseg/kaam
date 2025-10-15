@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { Save, Building2, FileText, MessageSquare } from 'lucide-react';
+import { Save, Building2, FileText, MessageSquare, Shield } from 'lucide-react';
+import PermissionsManager from '../components/PermissionsManager';
 
 export default function Settings() {
+  const { profile } = useAuth();
   const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'general' | 'permissions'>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SettingsType | null>(null);
@@ -105,7 +109,43 @@ export default function Settings() {
         <p className="text-gray-600 mt-1">Configure your academy details and system preferences</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {profile?.role === 'super_admin' && (
+        <div className="mb-6 flex gap-4 border-b">
+          <button
+            type="button"
+            onClick={() => setActiveTab('general')}
+            className={`px-6 py-3 font-semibold transition ${
+              activeTab === 'general'
+                ? 'text-red-700 border-b-2 border-red-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              General Settings
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('permissions')}
+            className={`px-6 py-3 font-semibold transition ${
+              activeTab === 'permissions'
+                ? 'text-red-700 border-b-2 border-red-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Role Permissions
+            </div>
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'permissions' && profile?.role === 'super_admin' ? (
+        <PermissionsManager />
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center gap-2 mb-6">
             <Building2 className="w-6 h-6 text-red-700" />
@@ -480,7 +520,8 @@ export default function Settings() {
           <Save className="w-5 h-5" />
           {saving ? 'Saving...' : 'Save All Settings'}
         </button>
-      </form>
+        </form>
+      )}
     </div>
   );
 }

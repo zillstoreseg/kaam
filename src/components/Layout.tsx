@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Settings as SettingsType } from '../lib/supabase';
+import { supabase, Settings as SettingsType, RolePermission, PageName } from '../lib/supabase';
 import {
   LayoutDashboard,
   Users,
@@ -25,6 +25,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsType | null>(null);
+  const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const langMenuRef = useRef<HTMLDivElement>(null);
   const { profile, signOut } = useAuth();
   const { t, language, setLanguage, isRTL } = useLanguage();
@@ -33,7 +34,8 @@ export default function Layout() {
 
   useEffect(() => {
     loadSettings();
-  }, []);
+    loadPermissions();
+  }, [profile]);
 
   async function loadSettings() {
     try {
@@ -42,6 +44,28 @@ export default function Layout() {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  }
+
+  async function loadPermissions() {
+    if (!profile?.role) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('*')
+        .eq('role', profile.role);
+
+      if (error) throw error;
+      setPermissions((data as RolePermission[]) || []);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
+    }
+  }
+
+  function canViewPage(page: PageName): boolean {
+    if (profile?.role === 'super_admin') return true;
+    const permission = permissions.find(p => p.page === page);
+    return permission?.can_view || false;
   }
 
   useEffect(() => {
@@ -57,23 +81,21 @@ export default function Layout() {
   }, [langMenuOpen]);
 
   const navigation = [
-    { name: t('nav.dashboard'), href: '/', icon: LayoutDashboard, roles: ['super_admin', 'branch_manager', 'coach'] },
-    { name: t('nav.students'), href: '/students', icon: Users, roles: ['super_admin', 'branch_manager', 'coach'] },
-    { name: t('nav.attendance'), href: '/attendance', icon: ClipboardCheck, roles: ['super_admin', 'branch_manager', 'coach'] },
-    { name: t('nav.packages'), href: '/packages', icon: Package, roles: ['super_admin'] },
-    { name: t('nav.branches'), href: '/branches', icon: Building2, roles: ['super_admin'] },
-    { name: t('nav.schemes'), href: '/schemes', icon: Award, roles: ['super_admin'] },
-    { name: t('nav.stock'), href: '/stock', icon: ShoppingBag, roles: ['super_admin', 'stock_manager'] },
-    { name: t('nav.sales'), href: '/sales', icon: Receipt, roles: ['super_admin', 'stock_manager', 'branch_manager'] },
-    { name: t('nav.invoices'), href: '/invoices', icon: FileText, roles: ['super_admin', 'branch_manager', 'stock_manager', 'accountant'] },
-    { name: t('nav.reports'), href: '/reports', icon: FileText, roles: ['super_admin', 'branch_manager', 'accountant'] },
-    { name: t('nav.users'), href: '/users', icon: UserCog, roles: ['super_admin'] },
-    { name: t('nav.settings'), href: '/settings', icon: Settings, roles: ['super_admin'] },
+    { name: t('nav.dashboard'), href: '/', icon: LayoutDashboard, page: 'dashboard' as PageName },
+    { name: t('nav.students'), href: '/students', icon: Users, page: 'students' as PageName },
+    { name: t('nav.attendance'), href: '/attendance', icon: ClipboardCheck, page: 'attendance' as PageName },
+    { name: t('nav.packages'), href: '/packages', icon: Package, page: 'packages' as PageName },
+    { name: t('nav.branches'), href: '/branches', icon: Building2, page: 'branches' as PageName },
+    { name: t('nav.schemes'), href: '/schemes', icon: Award, page: 'schemes' as PageName },
+    { name: t('nav.stock'), href: '/stock', icon: ShoppingBag, page: 'stock' as PageName },
+    { name: t('nav.sales'), href: '/sales', icon: Receipt, page: 'sales' as PageName },
+    { name: t('nav.invoices'), href: '/invoices', icon: FileText, page: 'invoices' as PageName },
+    { name: t('nav.reports'), href: '/reports', icon: FileText, page: 'reports' as PageName },
+    { name: t('nav.users'), href: '/users', icon: UserCog, page: 'users' as PageName },
+    { name: t('nav.settings'), href: '/settings', icon: Settings, page: 'settings' as PageName },
   ];
 
-  const filteredNav = navigation.filter((item) =>
-    profile?.role ? item.roles.includes(profile.role) : false
-  );
+  const filteredNav = navigation.filter((item) => canViewPage(item.page));
 
   const handleSignOut = async () => {
     await signOut();

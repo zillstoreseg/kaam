@@ -10,6 +10,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export type UserRole = 'super_admin' | 'branch_manager' | 'coach' | 'accountant' | 'stock_manager';
+export type PageName = 'dashboard' | 'students' | 'attendance' | 'packages' | 'schemes' | 'branches' | 'stock' | 'sales' | 'invoices' | 'reports' | 'users' | 'settings';
 
 export interface Profile {
   id: string;
@@ -17,6 +18,18 @@ export interface Profile {
   role: UserRole;
   branch_id: string | null;
   created_at: string;
+}
+
+export interface RolePermission {
+  id: string;
+  role: UserRole;
+  page: PageName;
+  can_view: boolean;
+  can_create: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Branch {
