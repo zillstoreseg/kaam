@@ -16,6 +16,8 @@ interface InvoiceWithItems extends Invoice {
 
 export default function Sales() {
   const { profile } = useAuth();
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [students, setStudents] = useState<Student[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [settings, setSettings] = useState<SettingsType | null>(null);
@@ -42,6 +44,12 @@ export default function Sales() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (profile?.branch_id) {
+      setSelectedBranch(profile.branch_id);
+    }
+  }, [profile]);
+
   async function loadData() {
     try {
       const [studentsRes, itemsRes, settingsRes, invoicesRes, branchesRes] = await Promise.all([
@@ -55,6 +63,7 @@ export default function Sales() {
       if (studentsRes.data) setStudents(studentsRes.data as Student[]);
       if (itemsRes.data) setStockItems(itemsRes.data as StockItem[]);
       if (settingsRes.data) setSettings(settingsRes.data as SettingsType);
+      if (branchesRes.data) setBranches(branchesRes.data as Branch[]);
 
       if (invoicesRes.data) {
         const invoicesWithDetails = await Promise.all(
@@ -141,8 +150,10 @@ export default function Sales() {
       return;
     }
 
-    if (!profile?.branch_id) {
-      alert('Branch information is missing');
+    const branchId = profile?.branch_id || selectedBranch;
+
+    if (!branchId) {
+      alert('Please select a branch');
       return;
     }
 
@@ -153,7 +164,7 @@ export default function Sales() {
 
       const invoiceData = {
         invoice_number: invoiceNumber,
-        branch_id: profile.branch_id,
+        branch_id: branchId,
         customer_id: selectedStudent?.id || null,
         customer_name: selectedStudent?.full_name || customCustomer.name,
         customer_phone: selectedStudent?.phone1 || customCustomer.phone,
@@ -282,7 +293,26 @@ export default function Sales() {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Customer Information</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Invoice Information</h2>
+
+          {!profile?.branch_id && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                required
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+              >
+                <option value="">-- Select Branch --</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} - {branch.location}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
