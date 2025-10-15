@@ -76,6 +76,35 @@ export interface Student {
   trial_student: boolean;
   whatsapp_number: string;
   joined_date: string;
+  freeze_start_date: string | null;
+  freeze_end_date: string | null;
+  freeze_reason: string | null;
+  is_frozen: boolean;
+  created_at: string;
+}
+
+export interface MembershipFreezeHistory {
+  id: string;
+  student_id: string;
+  freeze_start: string;
+  freeze_end: string;
+  freeze_reason: string | null;
+  frozen_by: string;
+  unfrozen_at: string | null;
+  unfrozen_by: string | null;
+  created_at: string;
+}
+
+export interface AttendanceAlert {
+  id: string;
+  student_id: string;
+  attendance_id: string;
+  alert_type: string;
+  alert_message: string;
+  week_start_date: string;
+  session_count: number;
+  session_limit: number;
+  is_resolved: boolean;
   created_at: string;
 }
 

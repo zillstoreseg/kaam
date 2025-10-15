@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Student, Attendance as AttendanceType } from '../lib/supabase';
-import { Search, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { supabase, Student, Attendance as AttendanceType, Package as PackageType } from '../lib/supabase';
+import { Search, Calendar, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 
 export default function Attendance() {
   const { profile } = useAuth();
@@ -64,6 +64,13 @@ export default function Attendance() {
     setSaving(studentId);
     try {
       const existingAttendance = attendance[studentId];
+      const student = students.find((s) => s.id === studentId);
+      if (!student) return;
+
+      // Check weekly attendance limit before marking present
+      if (status === 'present' && !existingAttendance) {
+        await checkAttendanceLimit(student, studentId);
+      }
 
       if (existingAttendance) {
         const { error } = await supabase
@@ -73,9 +80,6 @@ export default function Attendance() {
 
         if (error) throw error;
       } else {
-        const student = students.find((s) => s.id === studentId);
-        if (!student) return;
-
         const { data, error } = await supabase
           .from('attendance')
           .insert([
@@ -103,6 +107,67 @@ export default function Attendance() {
       alert('Error marking attendance');
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function checkAttendanceLimit(student: Student, studentId: string) {
+    try {
+      // Get student's package
+      const { data: packageData } = await supabase
+        .from('packages')
+        .select('sessions_per_week')
+        .eq('id', student.package_id)
+        .single();
+
+      if (!packageData) return;
+
+      const sessionsPerWeek = (packageData as PackageType).sessions_per_week;
+
+      // Get start of current week (Monday)
+      const selectedDateObj = new Date(selectedDate);
+      const dayOfWeek = selectedDateObj.getDay();
+      const diff = selectedDateObj.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      const weekStart = new Date(selectedDateObj.setDate(diff));
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+
+      // Get end of week (Sunday)
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+      // Count attendance for this week
+      const { data: weekAttendance, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('status', 'present')
+        .gte('attendance_date', weekStartStr)
+        .lte('attendance_date', weekEndStr);
+
+      if (error) throw error;
+
+      const weeklyCount = (weekAttendance?.length || 0) + 1; // +1 for current attendance
+
+      // If limit exceeded, create alert
+      if (weeklyCount > sessionsPerWeek) {
+        const alertMessage = `${student.full_name} has attended ${weeklyCount} sessions this week, exceeding the limit of ${sessionsPerWeek} sessions per week.`;
+
+        alert(`⚠️ ATTENDANCE LIMIT EXCEEDED!\n\n${alertMessage}\n\nAttendance will still be marked with a note.`);
+
+        // Create alert in database
+        await supabase.from('attendance_alerts').insert({
+          student_id: studentId,
+          attendance_id: null, // Will be set after attendance is created
+          alert_type: 'limit_exceeded',
+          alert_message: alertMessage,
+          week_start_date: weekStartStr,
+          session_count: weeklyCount,
+          session_limit: sessionsPerWeek,
+          is_resolved: false,
+        });
+      }
+    } catch (error) {
+      console.error('Error checking attendance limit:', error);
     }
   }
 
