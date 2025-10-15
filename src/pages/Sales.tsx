@@ -6,6 +6,7 @@ import { Plus, X, Printer, Search, Send, ShoppingCart, Trash2, FileText } from '
 interface CartItem {
   stock_item: StockItem;
   quantity: number;
+  custom_price?: number;
 }
 
 interface InvoiceWithItems extends Invoice {
@@ -128,12 +129,19 @@ export default function Sales() {
     setCart(cart.map((c) => (c.stock_item.id === itemId ? { ...c, quantity } : c)));
   }
 
+  function updatePrice(itemId: string, price: number) {
+    setCart(cart.map((c) => (c.stock_item.id === itemId ? { ...c, custom_price: price } : c)));
+  }
+
   function removeFromCart(itemId: string) {
     setCart(cart.filter((c) => c.stock_item.id !== itemId));
   }
 
   function calculateTotals() {
-    const subtotal = cart.reduce((sum, item) => sum + item.stock_item.price * item.quantity, 0);
+    const subtotal = cart.reduce((sum, item) => {
+      const price = item.custom_price !== undefined ? item.custom_price : item.stock_item.price;
+      return sum + price * item.quantity;
+    }, 0);
     const vatAmount = (subtotal * VAT_RATE) / 100;
     const total = subtotal + vatAmount;
     return { subtotal, vatAmount, total };
@@ -189,15 +197,18 @@ export default function Sales() {
 
       if (invoiceError) throw invoiceError;
 
-      const invoiceItems = cart.map((item) => ({
-        invoice_id: invoice.id,
-        stock_item_id: item.stock_item.id,
-        item_name: item.stock_item.name,
-        item_description: item.stock_item.description,
-        quantity: item.quantity,
-        unit_price: item.stock_item.price,
-        total_price: item.stock_item.price * item.quantity,
-      }));
+      const invoiceItems = cart.map((item) => {
+        const price = item.custom_price !== undefined ? item.custom_price : item.stock_item.price;
+        return {
+          invoice_id: invoice.id,
+          stock_item_id: item.stock_item.id,
+          item_name: item.stock_item.name,
+          item_description: item.stock_item.description,
+          quantity: item.quantity,
+          unit_price: price,
+          total_price: price * item.quantity,
+        };
+      });
 
       const { error: itemsError } = await supabase.from('invoice_items').insert(invoiceItems);
 
@@ -439,45 +450,67 @@ export default function Sales() {
           ) : (
             <>
               <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                {cart.map((item) => (
-                  <div key={item.stock_item.id} className="flex gap-3 p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-semibold text-sm">{item.stock_item.name}</div>
-                      <div className="text-sm text-gray-600">{item.stock_item.price.toFixed(2)} AED</div>
+                {cart.map((item) => {
+                  const displayPrice = item.custom_price !== undefined ? item.custom_price : item.stock_item.price;
+                  return (
+                    <div key={item.stock_item.id} className="flex gap-3 p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm">{item.stock_item.name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">Price:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={displayPrice}
+                            onChange={(e) => updatePrice(item.stock_item.id, parseFloat(e.target.value) || 0)}
+                            className="w-20 px-2 py-1 border rounded text-sm"
+                          />
+                          <span className="text-xs text-gray-500">AED</span>
+                          {displayPrice === 0 && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">FREE</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.stock_item.quantity}
+                          value={item.quantity}
+                          onChange={(e) => updateQuantity(item.stock_item.id, parseInt(e.target.value))}
+                          className="w-16 px-2 py-1 border rounded text-center"
+                        />
+                        <button
+                          onClick={() => removeFromCart(item.stock_item.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max={item.stock_item.quantity}
-                        value={item.quantity}
-                        onChange={(e) => updateQuantity(item.stock_item.id, parseInt(e.target.value))}
-                        className="w-16 px-2 py-1 border rounded text-center"
-                      />
-                      <button
-                        onClick={() => removeFromCart(item.stock_item.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
-                  <span>{subtotal.toFixed(2)} AED</span>
+                  <span>{subtotal.toFixed(2)} {settings?.currency_symbol || 'AED'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>VAT ({VAT_RATE}%)</span>
-                  <span>{vatAmount.toFixed(2)} AED</span>
+                  <span>{vatAmount.toFixed(2)} {settings?.currency_symbol || 'AED'}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total</span>
-                  <span className="text-green-600">{total.toFixed(2)} AED</span>
+                  <span className="text-green-600">{total.toFixed(2)} {settings?.currency_symbol || 'AED'}</span>
                 </div>
+                {total === 0 && (
+                  <div className="text-center text-sm text-green-600 font-medium">
+                    Free Invoice - No Payment Required
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 space-y-4">
