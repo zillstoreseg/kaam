@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Student, Branch, Package, Scheme } from '../lib/supabase';
-import { Search, Plus, Edit2, Trash2, X, Upload, Camera, MessageCircle } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, X, Upload, Camera, MessageCircle, Download } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
 import { nationalities } from '../data/nationalities';
 
@@ -21,6 +21,7 @@ export default function Students() {
   const [selectedSchemes, setSelectedSchemes] = useState<string[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [exportBranchId, setExportBranchId] = useState<string>('');
   const [formData, setFormData] = useState({
     full_name: '',
     phone1: '',
@@ -283,6 +284,88 @@ export default function Students() {
     window.open(`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=${message}`, '_blank');
   }
 
+  async function exportToExcel() {
+    try {
+      let query = supabase.from('students').select(`
+        *,
+        branch:branches(name, location),
+        package:packages(name),
+        student_schemes(scheme:schemes(name))
+      `).order('created_at', { ascending: false });
+
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        query = query.eq('branch_id', profile.branch_id);
+      } else if (exportBranchId) {
+        query = query.eq('branch_id', exportBranchId);
+      }
+
+      const { data: studentsData, error } = await query;
+      if (error) throw error;
+
+      const csvRows = [
+        [
+          'Full Name',
+          'Phone 1',
+          'Phone 2',
+          'WhatsApp',
+          'Nationality',
+          'Address',
+          'Branch',
+          'Branch Location',
+          'Package',
+          'Schemes',
+          'Package Start',
+          'Package End',
+          'Joined Date',
+          'Status',
+          'Trial Student',
+          'Notes'
+        ]
+      ];
+
+      studentsData?.forEach((student: any) => {
+        const schemes = student.student_schemes?.map((ss: any) => ss.scheme?.name).filter(Boolean).join(', ') || '';
+        csvRows.push([
+          student.full_name || '',
+          student.phone1 || '',
+          student.phone2 || '',
+          student.whatsapp_number || '',
+          student.nationality || '',
+          student.address || '',
+          student.branch?.name || '',
+          student.branch?.location || '',
+          student.package?.name || '',
+          schemes,
+          student.package_start || '',
+          student.package_end || '',
+          student.joined_date || '',
+          student.is_active ? 'Active' : 'Inactive',
+          student.trial_student ? 'Yes' : 'No',
+          student.notes || ''
+        ]);
+      });
+
+      const csvContent = csvRows.map(row =>
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `students_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      alert('Students exported successfully!');
+    } catch (error) {
+      console.error('Error exporting students:', error);
+      alert('Error exporting students');
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-12">{t('common.loading')}</div>;
   }
@@ -293,27 +376,57 @@ export default function Students() {
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">{t('students.title')}</h1>
-        {canEdit && (
+        <div className="flex gap-2">
           <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition"
+            onClick={exportToExcel}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
           >
-            <Plus className="w-5 h-5" />
-            {t('students.add')}
+            <Download className="w-5 h-5" />
+            Export to Excel
           </button>
-        )}
+          {canEdit && (
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition"
+            >
+              <Plus className="w-5 h-5" />
+              {t('students.add')}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('students.search')}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={t('students.search')}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
+            />
+          </div>
+          {profile?.role === 'super_admin' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter Export by Branch
+              </label>
+              <select
+                value={exportBranchId}
+                onChange={(e) => setExportBranchId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
+              >
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} - {branch.location}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
