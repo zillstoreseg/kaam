@@ -112,6 +112,9 @@ export default function Layout() {
     { code: 'en', name: 'English' },
     { code: 'ar', name: 'العربية' },
     { code: 'hi', name: 'हिंदी' },
+    { code: 'ml', name: 'മലയാളം' },
+    { code: 'ur', name: 'اردو' },
+    { code: 'fil', name: 'Filipino' },
   ];
 
   return (
