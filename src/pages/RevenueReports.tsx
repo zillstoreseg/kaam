@@ -262,6 +262,44 @@ export default function RevenueReports() {
         </div>
       </div>
 
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <ShoppingCart className="w-5 h-5 text-blue-600" />
+          Sales Breakdown - Everything Sold
+        </h2>
+        <div className="space-y-4">
+          <div className="border rounded-lg p-4 bg-green-50">
+            <h3 className="font-semibold text-green-800 mb-2">Subscriptions (New Memberships)</h3>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(revenueData.subscriptions)}</p>
+          </div>
+
+          <div className="border rounded-lg p-4 bg-purple-50">
+            <h3 className="font-semibold text-purple-800 mb-2">Renewals</h3>
+            <p className="text-2xl font-bold text-purple-600">{formatCurrency(revenueData.renewals)}</p>
+          </div>
+
+          <div className="border rounded-lg p-4 bg-orange-50">
+            <h3 className="font-semibold text-orange-800 mb-2">Product Sales</h3>
+            <p className="text-2xl font-bold text-orange-600">{formatCurrency(revenueData.sales)}</p>
+          </div>
+
+          <div className="border-t-2 border-gray-300 pt-4 mt-4">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold text-gray-900">Total Revenue (with VAT)</span>
+              <span className="text-2xl font-bold text-blue-600">{formatCurrency(revenueData.total)}</span>
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-lg font-semibold text-red-700">Less: VAT (Payable to Government)</span>
+              <span className="text-2xl font-bold text-red-600">-{formatCurrency(revenueData.totalVAT)}</span>
+            </div>
+            <div className="flex justify-between items-center mt-3 pt-3 border-t-2 border-emerald-300 bg-emerald-50 p-3 rounded-lg">
+              <span className="text-xl font-bold text-emerald-800">Net Profit (Your Actual Earnings)</span>
+              <span className="text-3xl font-bold text-emerald-600">{formatCurrency(revenueData.totalProfit)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
