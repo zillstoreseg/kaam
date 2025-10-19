@@ -85,9 +85,13 @@ export default function Dashboard() {
       }
       const activeStudentsRes = await activeQuery;
 
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+      const threeDaysLaterStr = threeDaysLater.toISOString().split('T')[0];
+
       let expiringQuery = supabase.from('students').select('*', { count: 'exact', head: true })
         .eq('is_active', true)
-        .lte('package_end', nextMonthStr)
+        .lte('package_end', threeDaysLaterStr)
         .gte('package_end', today);
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         expiringQuery = expiringQuery.eq('branch_id', profile.branch_id);
@@ -205,11 +209,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div
+          className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition cursor-pointer"
+          onClick={() => navigate('/attendance')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">{t('dashboard.todayAttendance')}</p>
               <p className="text-3xl font-bold text-gray-900 mt-2">{stats.todayAttendance}</p>
+              <p className="text-xs text-green-600 mt-1">Click to view details</p>
             </div>
             <ClipboardCheck className="w-12 h-12 text-green-600" />
           </div>

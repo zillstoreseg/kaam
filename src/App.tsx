@@ -17,6 +17,8 @@ import Stock from './pages/Stock';
 import StockInventory from './pages/StockInventory';
 import Sales from './pages/Sales';
 import Invoices from './pages/Invoices';
+import RevenueReports from './pages/RevenueReports';
+import ExamEligibility from './pages/ExamEligibility';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -87,6 +89,8 @@ function App() {
               <Route path="stock-inventory" element={<StockInventory />} />
               <Route path="sales" element={<Sales />} />
               <Route path="invoices" element={<Invoices />} />
+              <Route path="revenue-reports" element={<RevenueReports />} />
+              <Route path="exam-eligibility" element={<ExamEligibility />} />
               <Route path="users" element={<Users />} />
               <Route path="settings" element={<Settings />} />
             </Route>
