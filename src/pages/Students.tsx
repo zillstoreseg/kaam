@@ -29,6 +29,7 @@ export default function Students() {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
   const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithDetails | null>(null);
@@ -52,6 +53,8 @@ export default function Students() {
     full_name: '',
     phone1: '',
     whatsapp_number: '',
+    email: '',
+    gender: '',
     nationality: '',
     address: '',
     package_id: '',
@@ -93,10 +96,12 @@ export default function Students() {
     }
   }
 
-  const filteredStudents = students.filter((student) =>
-    student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.phone1.includes(searchTerm)
-  );
+  const filteredStudents = students.filter((student) => {
+    const matchesSearch = student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.phone1.includes(searchTerm);
+    const matchesBranch = selectedBranchFilter === 'all' || student.branch_id === selectedBranchFilter;
+    return matchesSearch && matchesBranch;
+  });
 
   async function markAsExpired(student: StudentWithDetails) {
     if (!confirm(`Mark ${student.full_name} as expired (deactivate)?`)) return;
@@ -315,6 +320,8 @@ export default function Students() {
       full_name: '',
       phone1: '',
       whatsapp_number: '',
+      email: '',
+      gender: '',
       nationality: '',
       address: '',
       package_id: '',
@@ -387,6 +394,8 @@ export default function Students() {
       full_name: student.full_name,
       phone1: student.phone1 || '',
       whatsapp_number: student.whatsapp_number || '',
+      email: (student as any).email || '',
+      gender: (student as any).gender || '',
       nationality: student.nationality || '',
       address: student.address || '',
       package_id: student.package_id || '',
@@ -431,6 +440,8 @@ export default function Students() {
         full_name: formData.full_name,
         phone1: formData.phone1,
         whatsapp_number: formData.whatsapp_number,
+        email: formData.email,
+        gender: formData.gender,
         nationality: formData.nationality,
         address: formData.address,
         package_id: formData.package_id,
@@ -509,15 +520,33 @@ export default function Students() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder={t('common.search')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {profile?.role === 'super_admin' && (
+            <div>
+              <select
+                value={selectedBranchFilter}
+                onChange={(e) => setSelectedBranchFilter(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
+              >
+                <option value="all">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder={t('common.search')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
+            />
+          </div>
         </div>
       </div>
 
@@ -884,6 +913,19 @@ export default function Students() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    placeholder="student@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     WhatsApp Number
                   </label>
                   <input
@@ -892,6 +934,21 @@ export default function Students() {
                     onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Gender
+                  </label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  >
+                    <option value="">Select gender...</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
                 </div>
 
                 <div>
@@ -982,24 +1039,12 @@ export default function Students() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Student Photo
                   </label>
-                  <div className="flex items-start gap-4">
-                    <div className="flex-1">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handlePhotoSelect}
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
-                        id="photo-upload"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Maximum file size: 5MB. Supported formats: JPEG, PNG, WebP, GIF
-                      </p>
-                    </div>
-                    {photoPreview && (
-                      <div className="relative w-24 h-24 border rounded-lg overflow-hidden">
+                  <div className="flex items-center gap-6">
+                    {photoPreview ? (
+                      <div className="relative w-32 h-32 border-2 border-gray-300 rounded-lg overflow-hidden shadow-sm">
                         <img
                           src={photoPreview}
                           alt="Preview"
@@ -1012,12 +1057,37 @@ export default function Students() {
                             setPhotoPreview('');
                             setFormData({ ...formData, photo_url: '' });
                           }}
-                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
+                          className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 shadow-lg transition"
+                          title="Remove photo"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
+                    ) : (
+                      <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                        <ImageIcon className="w-12 h-12 text-gray-400" />
+                      </div>
                     )}
+                    <div className="flex-1">
+                      <label htmlFor="photo-upload" className="cursor-pointer">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition w-fit">
+                          <Upload className="w-4 h-4 text-gray-700" />
+                          <span className="text-sm font-medium text-gray-700">
+                            {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                          </span>
+                        </div>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoSelect}
+                        className="hidden"
+                        id="photo-upload"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        Max 5MB • JPEG, PNG, WebP, GIF
+                      </p>
+                    </div>
                   </div>
                 </div>
 
