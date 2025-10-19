@@ -30,6 +30,8 @@ export default function Students() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
+  const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('all');
   const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithDetails | null>(null);
@@ -55,6 +57,7 @@ export default function Students() {
     whatsapp_number: '',
     email: '',
     gender: '',
+    birthdate: '',
     nationality: '',
     address: '',
     package_id: '',
@@ -100,7 +103,15 @@ export default function Students() {
     const matchesSearch = student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.phone1.includes(searchTerm);
     const matchesBranch = selectedBranchFilter === 'all' || student.branch_id === selectedBranchFilter;
-    return matchesSearch && matchesBranch;
+
+    const studentBirthdate = (student as any).birthdate;
+    const matchesYear = selectedYearFilter === 'all' ||
+      (studentBirthdate && new Date(studentBirthdate).getFullYear().toString() === selectedYearFilter);
+
+    const studentGender = (student as any).gender;
+    const matchesGender = selectedGenderFilter === 'all' || studentGender === selectedGenderFilter;
+
+    return matchesSearch && matchesBranch && matchesYear && matchesGender;
   });
 
   async function markAsExpired(student: StudentWithDetails) {
@@ -322,6 +333,7 @@ export default function Students() {
       whatsapp_number: '',
       email: '',
       gender: '',
+      birthdate: '',
       nationality: '',
       address: '',
       package_id: '',
@@ -396,6 +408,7 @@ export default function Students() {
       whatsapp_number: student.whatsapp_number || '',
       email: (student as any).email || '',
       gender: (student as any).gender || '',
+      birthdate: (student as any).birthdate || '',
       nationality: student.nationality || '',
       address: student.address || '',
       package_id: student.package_id || '',
@@ -442,6 +455,7 @@ export default function Students() {
         whatsapp_number: formData.whatsapp_number,
         email: formData.email,
         gender: formData.gender,
+        birthdate: formData.birthdate || null,
         nationality: formData.nationality,
         address: formData.address,
         package_id: formData.package_id,
@@ -520,7 +534,7 @@ export default function Students() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {profile?.role === 'super_admin' && (
             <div>
               <select
@@ -537,6 +551,31 @@ export default function Students() {
               </select>
             </div>
           )}
+          <div>
+            <select
+              value={selectedYearFilter}
+              onChange={(e) => setSelectedYearFilter(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
+            >
+              <option value="all">All Birth Years</option>
+              {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={selectedGenderFilter}
+              onChange={(e) => setSelectedGenderFilter(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
+            >
+              <option value="all">All Genders</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -949,6 +988,18 @@ export default function Students() {
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Birthdate
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.birthdate}
+                    onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
                 </div>
 
                 <div>

@@ -107,7 +107,8 @@ export default function RevenueReports() {
 
         invoice.invoice_items?.forEach((item: any) => {
           const itemName = item.description || 'Unknown Item';
-          byItem[itemName] = (byItem[itemName] || 0) + item.total;
+          const itemTotal = parseFloat(item.total) || 0;
+          byItem[itemName] = (byItem[itemName] || 0) + itemTotal;
         });
       });
 

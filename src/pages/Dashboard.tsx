@@ -45,6 +45,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alerts, setAlerts] = useState<(AttendanceAlert & { student?: Student })[]>([]);
+  const [showTodayAttendance, setShowTodayAttendance] = useState(false);
+  const [todayAttendanceList, setTodayAttendanceList] = useState<any[]>([]);
 
   useEffect(() => {
     loadStats();
@@ -144,6 +146,33 @@ export default function Dashboard() {
     }
   }
 
+  async function loadTodayAttendance() {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      let query = supabase
+        .from('attendance')
+        .select(`
+          *,
+          student:students(full_name, phone1)
+        `)
+        .eq('attendance_date', today)
+        .eq('status', 'present')
+        .order('check_in_time', { ascending: false });
+
+      if (profile?.role === 'branch_manager') {
+        query = query.eq('branch_id', profile.branch_id);
+      }
+
+      const { data } = await query;
+      if (data) {
+        setTodayAttendanceList(data);
+      }
+    } catch (error) {
+      console.error('Error loading today attendance:', error);
+    }
+  }
+
   async function loadAlerts() {
     try {
       const { data, error } = await supabase
@@ -211,7 +240,10 @@ export default function Dashboard() {
 
         <div
           className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition cursor-pointer"
-          onClick={() => navigate('/attendance')}
+          onClick={() => {
+            loadTodayAttendance();
+            setShowTodayAttendance(true);
+          }}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -341,6 +373,62 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTodayAttendance && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-900">Today's Attendance</h2>
+              <button onClick={() => setShowTodayAttendance(false)}>
+                <X className="w-6 h-6 text-gray-600 hover:text-gray-900" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {todayAttendanceList.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Student Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Check In</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Check Out</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {todayAttendanceList.map((record: any) => (
+                        <tr key={record.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {record.student?.full_name || 'Unknown'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.student?.phone1 || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.check_in_time || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.check_out_time || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                              Present
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-8">No attendance records for today</p>
               )}
             </div>
           </div>
