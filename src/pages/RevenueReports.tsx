@@ -58,12 +58,11 @@ export default function RevenueReports() {
         .select(`
           *,
           invoice_items(*),
-          student:students(full_name, branch_id),
           scheme:schemes(name)
         `);
 
       if (profile?.role === 'branch_manager') {
-        query = query.eq('student.branch_id', profile.branch_id);
+        query = query.eq('branch_id', profile.branch_id);
       }
 
       if (period !== 'all') {
@@ -106,8 +105,8 @@ export default function RevenueReports() {
         }
 
         invoice.invoice_items?.forEach((item: any) => {
-          const itemName = item.description || 'Unknown Item';
-          const itemTotal = parseFloat(item.total) || 0;
+          const itemName = item.item_name || item.item_description || 'Unknown Item';
+          const itemTotal = parseFloat(item.total_price) || 0;
           byItem[itemName] = (byItem[itemName] || 0) + itemTotal;
         });
       });
@@ -130,9 +129,9 @@ export default function RevenueReports() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-AE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'AED',
     }).format(amount);
   };
 

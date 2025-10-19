@@ -158,7 +158,7 @@ export default function Dashboard() {
         `)
         .eq('attendance_date', today)
         .eq('status', 'present')
-        .order('check_in_time', { ascending: false });
+        .order('attendance_time', { ascending: false });
 
       if (profile?.role === 'branch_manager') {
         query = query.eq('branch_id', profile.branch_id);
@@ -397,9 +397,9 @@ export default function Dashboard() {
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Student Name</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Phone</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Check In</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Check Out</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Time</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Note</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -412,15 +412,15 @@ export default function Dashboard() {
                             {record.student?.phone1 || 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-gray-600">
-                            {record.check_in_time || 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {record.check_out_time || 'N/A'}
+                            {record.attendance_time ? new Date(record.attendance_time).toLocaleTimeString() : 'N/A'}
                           </td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                               Present
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.note || '-'}
                           </td>
                         </tr>
                       ))}
