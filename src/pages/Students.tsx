@@ -495,8 +495,12 @@ export default function Students() {
 
   function calculateDaysRemaining(packageEnd: string): number {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const endDate = new Date(packageEnd);
-    return Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    endDate.setHours(0, 0, 0, 0);
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays + 1;
   }
 
   function getStatusBadge(student: StudentWithDetails) {
