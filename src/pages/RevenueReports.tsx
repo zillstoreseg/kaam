@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { DollarSign, TrendingUp, Package, RefreshCw, ShoppingCart, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, Package, RefreshCw, ShoppingCart, Calendar, Receipt, Banknote } from 'lucide-react';
 
 interface RevenueData {
   total: number;
+  totalVAT: number;
+  totalProfit: number;
   subscriptions: number;
   renewals: number;
   sales: number;
@@ -18,6 +20,8 @@ export default function RevenueReports() {
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('month');
   const [revenueData, setRevenueData] = useState<RevenueData>({
     total: 0,
+    totalVAT: 0,
+    totalProfit: 0,
     subscriptions: 0,
     renewals: 0,
     sales: 0,
@@ -74,6 +78,8 @@ export default function RevenueReports() {
       if (!invoices) {
         setRevenueData({
           total: 0,
+          totalVAT: 0,
+          totalProfit: 0,
           subscriptions: 0,
           renewals: 0,
           sales: 0,
@@ -88,9 +94,13 @@ export default function RevenueReports() {
       let subscriptions = 0;
       let renewals = 0;
       let sales = 0;
+      let totalVAT = 0;
 
       invoices.forEach((invoice: any) => {
-        const amount = invoice.total_amount;
+        const amount = parseFloat(invoice.total_amount) || 0;
+        const vatAmount = parseFloat(invoice.vat_amount) || 0;
+
+        totalVAT += vatAmount;
 
         if (invoice.invoice_type === 'subscription' || invoice.description?.toLowerCase().includes('membership')) {
           subscriptions += amount;
@@ -111,10 +121,13 @@ export default function RevenueReports() {
         });
       });
 
-      const total = invoices.reduce((sum: number, inv: any) => sum + inv.total_amount, 0);
+      const total = invoices.reduce((sum: number, inv: any) => sum + parseFloat(inv.total_amount || 0), 0);
+      const totalProfit = total - totalVAT;
 
       setRevenueData({
         total,
+        totalVAT,
+        totalProfit,
         subscriptions,
         renewals,
         sales,
@@ -191,7 +204,7 @@ export default function RevenueReports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-semibold">Total Revenue</h3>
@@ -201,6 +214,26 @@ export default function RevenueReports() {
           <p className="text-sm opacity-90 mt-1">{getPeriodLabel()}</p>
         </div>
 
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">Net Profit</h3>
+            <TrendingUp className="w-8 h-8 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{formatCurrency(revenueData.totalProfit)}</p>
+          <p className="text-sm opacity-90 mt-1">Revenue excluding VAT</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">Total VAT</h3>
+            <Receipt className="w-8 h-8 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{formatCurrency(revenueData.totalVAT)}</p>
+          <p className="text-sm opacity-90 mt-1">Payable to government</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-semibold">Subscriptions</h3>

@@ -35,6 +35,8 @@ export default function Settings() {
     invoice_footer_text: '',
     auto_send_expired_message: false,
     expired_message_days_interval: 7,
+    admin_email: '',
+    enable_daily_reports: false,
   });
 
   useEffect(() => {
