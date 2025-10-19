@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { Save, Building2, FileText, MessageSquare, Shield } from 'lucide-react';
+import { Save, Building2, FileText, MessageSquare, Shield, Mail } from 'lucide-react';
 import PermissionsManager from '../components/PermissionsManager';
 
 export default function Settings() {
@@ -72,6 +72,8 @@ export default function Settings() {
           invoice_footer_text: data.invoice_footer_text || 'Thank you for your business! We appreciate your trust in us.',
           auto_send_expired_message: data.auto_send_expired_message || false,
           expired_message_days_interval: data.expired_message_days_interval || 7,
+          admin_email: data.admin_email || '',
+          enable_daily_reports: data.enable_daily_reports || false,
         });
       }
     } catch (error) {
@@ -505,6 +507,65 @@ export default function Settings() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Mail className="w-6 h-6 text-red-700" />
+            <h2 className="text-xl font-bold text-gray-900">Email Reports Configuration</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Admin Email Address
+              </label>
+              <input
+                type="email"
+                value={formData.admin_email}
+                onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                placeholder="admin@example.com"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Email address to receive daily registration reports
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="enable_daily_reports"
+                checked={formData.enable_daily_reports}
+                onChange={(e) =>
+                  setFormData({ ...formData, enable_daily_reports: e.target.checked })
+                }
+                className="w-5 h-5 text-red-700 rounded focus:ring-red-700"
+              />
+              <label htmlFor="enable_daily_reports" className="text-sm font-medium text-gray-700">
+                Enable Daily Registration Reports
+              </label>
+            </div>
+
+            {formData.enable_daily_reports && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900">
+                  <strong>Daily Report includes:</strong>
+                </p>
+                <ul className="text-xs text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                  <li>Students registered today</li>
+                  <li>Branch name</li>
+                  <li>Scheme/Package selected</li>
+                  <li>Amount paid and payment method</li>
+                  <li>Contact information (phone, email)</li>
+                  <li>All student data (except photo)</li>
+                </ul>
+                <p className="text-xs text-blue-700 mt-3">
+                  Reports are sent automatically every day at 11:59 PM
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
