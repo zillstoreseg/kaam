@@ -524,7 +524,7 @@ export default function Students() {
 
       // Create invoice item
       if (invoice) {
-        await supabase.from('invoice_items').insert({
+        const { data: invoiceItem } = await supabase.from('invoice_items').insert({
           invoice_id: invoice.id,
           stock_item_id: null,
           item_name: selectedPackage.name,
@@ -532,8 +532,18 @@ export default function Students() {
           quantity: 1,
           unit_price: packagePrice,
           total_price: subtotal,
-        });
+        }).select().single();
+
+        // Return complete invoice with items and related data
+        return {
+          ...invoice,
+          items: invoiceItem ? [invoiceItem] : [],
+          branch: branches.find(b => b.id === student.branch_id),
+          customer: student,
+        };
       }
+
+      return null;
     } catch (error) {
       console.error('Error creating invoice:', error);
       throw error;
@@ -579,6 +589,8 @@ export default function Students() {
 
         if (error) throw error;
         alert('Student updated successfully!');
+        setShowAddModal(false);
+        loadData();
       } else {
         const { data: newStudent, error } = await supabase
           .from('students')
@@ -590,14 +602,17 @@ export default function Students() {
 
         // Create invoice for new student
         if (newStudent) {
-          await createStudentInvoice(newStudent);
+          const invoice = await createStudentInvoice(newStudent);
+
+          // Show invoice modal
+          if (invoice) {
+            setGeneratedInvoice(invoice);
+            setShowInvoiceModal(true);
+            setShowAddModal(false);
+            loadData();
+          }
         }
-
-        alert('Student registered successfully! Invoice created.');
       }
-
-      setShowAddModal(false);
-      loadData();
     } catch (error: any) {
       console.error('Error:', error);
       alert(`Error: ${error?.message || 'Unknown error'}`);
