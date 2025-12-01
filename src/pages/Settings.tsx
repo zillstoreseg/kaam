@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { Save, Building2, FileText, MessageSquare, Shield, Mail, Key } from 'lucide-react';
+import { Save, Building2, FileText, MessageSquare, Shield, Mail, Key, User } from 'lucide-react';
 import PermissionsManager from '../components/PermissionsManager';
 
 export default function Settings() {
