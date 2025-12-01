@@ -26,6 +26,165 @@ function formatDate(dateString: string): string {
   });
 }
 
+function PieChart({ data }: { data: any[] }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const sourceNames: Record<string, string> = {
+    friend: 'Friend Referral',
+    google: 'Google',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    walk_in: 'Walk-in',
+    other: 'Other',
+  };
+
+  const sourceColors: Record<string, string> = {
+    friend: '#3B82F6',
+    google: '#EF4444',
+    facebook: '#6366F1',
+    instagram: '#EC4899',
+    walk_in: '#10B981',
+    other: '#6B7280',
+  };
+
+  const total = data.reduce((sum, item) => sum + (item.count as number), 0);
+  let currentAngle = -90;
+
+  const slices = data.map((item, index) => {
+    const percentage = (item.count as number) / total;
+    const angle = percentage * 360;
+    const startAngle = currentAngle;
+    currentAngle += angle;
+
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (currentAngle * Math.PI) / 180;
+    const midAngle = (startAngle + angle / 2) * Math.PI / 180;
+
+    const largeArc = angle > 180 ? 1 : 0;
+    const radius = hoveredIndex === index ? 105 : 100;
+    const innerRadius = 0;
+
+    const x1 = 150 + radius * Math.cos(startRad);
+    const y1 = 150 + radius * Math.sin(startRad);
+    const x2 = 150 + radius * Math.cos(endRad);
+    const y2 = 150 + radius * Math.sin(endRad);
+
+    const path = angle === 360
+      ? `M 150,150 m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0 a ${radius},${radius} 0 1,0 -${radius * 2},0`
+      : `M 150 150 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+
+    const labelX = 150 + (radius - 30) * Math.cos(midAngle);
+    const labelY = 150 + (radius - 30) * Math.sin(midAngle);
+
+    return {
+      path,
+      color: sourceColors[item.source] || sourceColors.other,
+      percentage: (percentage * 100).toFixed(1),
+      count: item.count,
+      source: sourceNames[item.source] || item.source,
+      labelX,
+      labelY,
+    };
+  });
+
+  return (
+    <div className="relative">
+      <svg width="300" height="300" viewBox="0 0 300 300">
+        {slices.map((slice, index) => (
+          <g key={index}>
+            <path
+              d={slice.path}
+              fill={slice.color}
+              stroke="white"
+              strokeWidth="2"
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              className="transition-all duration-200 cursor-pointer"
+              style={{
+                filter: hoveredIndex === index ? 'brightness(1.1)' : 'none',
+              }}
+            />
+            {parseFloat(slice.percentage) > 5 && (
+              <text
+                x={slice.labelX}
+                y={slice.labelY}
+                fill="white"
+                fontSize="14"
+                fontWeight="bold"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                pointerEvents="none"
+              >
+                {slice.percentage}%
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+      {hoveredIndex !== null && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg p-3 pointer-events-none">
+          <p className="text-sm font-semibold text-gray-900">{slices[hoveredIndex].source}</p>
+          <p className="text-lg font-bold" style={{ color: slices[hoveredIndex].color }}>
+            {slices[hoveredIndex].count} students
+          </p>
+          <p className="text-xs text-gray-600">{slices[hoveredIndex].percentage}%</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopReferrers({ students }: { students: any[] }) {
+  const referrerCounts = students.reduce((acc: any, student: any) => {
+    if (student.referral_source === 'friend' && student.referred_by_student_id) {
+      const referrerName = student.students?.full_name || 'Unknown';
+      const referrerId = student.referred_by_student_id;
+      if (!acc[referrerId]) {
+        acc[referrerId] = { name: referrerName, count: 0, students: [] };
+      }
+      acc[referrerId].count++;
+      acc[referrerId].students.push(student.full_name);
+    }
+    return acc;
+  }, {});
+
+  const topReferrers = Object.values(referrerCounts)
+    .sort((a: any, b: any) => b.count - a.count)
+    .slice(0, 5);
+
+  if (topReferrers.length === 0) {
+    return <p className="text-gray-500 text-sm">No referrals from existing students yet.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {topReferrers.map((referrer: any, index: number) => (
+        <div key={index} className="border rounded-lg p-4 hover:bg-gray-50 transition">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-lg font-bold text-blue-600">#{index + 1}</span>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">{referrer.name}</p>
+                <p className="text-sm text-gray-600">{referrer.count} referral{referrer.count > 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                {referrer.count} 🏆
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-gray-600 mt-2">
+            <span className="font-medium">Referred:</span> {referrer.students.join(', ')}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { profile } = useAuth();
   const { t } = useLanguage();
@@ -195,7 +354,7 @@ export default function Dashboard() {
     try {
       let query = supabase
         .from('students')
-        .select('referral_source, id');
+        .select('referral_source, id, full_name, referred_by_student_id, students!students_referred_by_student_id_fkey(full_name)');
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
@@ -215,7 +374,7 @@ export default function Dashboard() {
         count,
       }));
 
-      setReferralData(referralArray as any[]);
+      setReferralData({ sources: referralArray, details: data || [] } as any);
     } catch (error) {
       console.error('Error loading referral data:', error);
     }
@@ -361,52 +520,70 @@ export default function Dashboard() {
         )}
       </div>
 
-      {referralData.length > 0 && (
+      {referralData?.sources?.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-6">Student Acquisition Sources</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {referralData
-              .sort((a, b) => (b.count as number) - (a.count as number))
-              .map((item: any) => {
-                const sourceNames: Record<string, string> = {
-                  friend: 'Friend Referral',
-                  google: 'Google',
-                  facebook: 'Facebook',
-                  instagram: 'Instagram',
-                  walk_in: 'Walk-in',
-                  other: 'Other',
-                };
-                const sourceColors: Record<string, string> = {
-                  friend: 'bg-blue-100 text-blue-800 border-blue-300',
-                  google: 'bg-red-100 text-red-800 border-red-300',
-                  facebook: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-                  instagram: 'bg-pink-100 text-pink-800 border-pink-300',
-                  walk_in: 'bg-green-100 text-green-800 border-green-300',
-                  other: 'bg-gray-100 text-gray-800 border-gray-300',
-                };
-                const totalStudents = referralData.reduce((sum: number, d: any) => sum + (d.count as number), 0);
-                const percentage = ((item.count as number / totalStudents) * 100).toFixed(1);
 
-                return (
-                  <div
-                    key={item.source}
-                    className={`border-2 rounded-lg p-4 ${sourceColors[item.source] || sourceColors.other}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">{sourceNames[item.source] || item.source}</p>
-                        <p className="text-2xl font-bold mt-1">{item.count}</p>
-                        <p className="text-xs mt-1 opacity-75">{percentage}% of total</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="w-12 h-12 rounded-full bg-white bg-opacity-50 flex items-center justify-center">
-                          <span className="text-2xl font-bold">{percentage}%</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="flex items-center justify-center">
+              <PieChart data={referralData.sources} />
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Source Breakdown</h3>
+              {referralData.sources
+                .sort((a: any, b: any) => (b.count as number) - (a.count as number))
+                .map((item: any) => {
+                  const sourceNames: Record<string, string> = {
+                    friend: 'Friend Referral',
+                    google: 'Google',
+                    facebook: 'Facebook',
+                    instagram: 'Instagram',
+                    walk_in: 'Walk-in',
+                    other: 'Other',
+                  };
+                  const sourceColors: Record<string, string> = {
+                    friend: '#3B82F6',
+                    google: '#EF4444',
+                    facebook: '#6366F1',
+                    instagram: '#EC4899',
+                    walk_in: '#10B981',
+                    other: '#6B7280',
+                  };
+                  const totalStudents = referralData.sources.reduce((sum: number, d: any) => sum + (d.count as number), 0);
+                  const percentage = ((item.count as number / totalStudents) * 100).toFixed(1);
+
+                  return (
+                    <div key={item.source} className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: sourceColors[item.source] || sourceColors.other }}
+                      ></div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-gray-900">{sourceNames[item.source] || item.source}</span>
+                          <span className="text-gray-600">{item.count} students</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div
+                            className="h-2 rounded-full"
+                            style={{
+                              width: `${percentage}%`,
+                              backgroundColor: sourceColors[item.source] || sourceColors.other
+                            }}
+                          ></div>
                         </div>
                       </div>
+                      <span className="text-sm font-semibold text-gray-700">{percentage}%</span>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
+          </div>
+
+          <div className="mt-8 border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Referrers</h3>
+            <TopReferrers students={referralData.details} />
           </div>
         </div>
       )}

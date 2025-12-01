@@ -123,52 +123,38 @@ export default function AttendanceReports() {
       endDate.setMonth(endDate.getMonth() + 1);
       const endDateStr = endDate.toISOString().split('T')[0];
 
-      const { data, error } = await supabase
-        .from('attendance')
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
         .select(`
-          id,
-          student_id,
-          students!inner(full_name, branch_id, package_id),
-          branches!inner(name),
+          full_name,
+          branch_id,
+          package_id,
+          branches(name),
           packages(name)
         `)
+        .eq('id', selectedStudentId)
+        .maybeSingle();
+
+      if (studentError) throw studentError;
+      if (!studentData) return;
+
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('id')
         .eq('student_id', selectedStudentId)
         .eq('status', 'present')
         .gte('attendance_date', startDate)
         .lt('attendance_date', endDateStr);
 
-      if (error) throw error;
+      if (attendanceError) throw attendanceError;
 
-      if (data && data.length > 0) {
-        const firstRecord: any = data[0];
-        setMonthlyStats({
-          student_id: selectedStudentId,
-          student_name: firstRecord.students.full_name,
-          total_classes: data.length,
-          branch_name: firstRecord.branches.name,
-          package_name: firstRecord.packages?.name || 'N/A',
-        });
-      } else {
-        const { data: studentData } = await supabase
-          .from('students')
-          .select(`
-            full_name,
-            branches!inner(name),
-            packages(name)
-          `)
-          .eq('id', selectedStudentId)
-          .single();
-
-        if (studentData) {
-          setMonthlyStats({
-            student_id: selectedStudentId,
-            student_name: (studentData as any).full_name,
-            total_classes: 0,
-            branch_name: (studentData as any).branches.name,
-            package_name: (studentData as any).packages?.name || 'N/A',
-          });
-        }
-      }
+      setMonthlyStats({
+        student_id: selectedStudentId,
+        student_name: (studentData as any).full_name,
+        total_classes: attendanceData?.length || 0,
+        branch_name: (studentData as any).branches?.name || 'N/A',
+        package_name: (studentData as any).packages?.name || 'N/A',
+      });
     } catch (error) {
       console.error('Error loading student monthly stats:', error);
     } finally {
