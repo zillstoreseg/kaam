@@ -181,23 +181,49 @@ export default function Settings() {
 
     setSaving(true);
     try {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ full_name: profileData.full_name })
-        .eq('id', profile?.id);
-
-      if (profileError) throw profileError;
-
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email !== profileData.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: profileData.email
+      const emailChanged = user && user.email !== profileData.email;
+
+      if (emailChanged) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('No session');
+
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'update',
+            user_id: profile?.id,
+            full_name: profileData.full_name,
+            email: profileData.email,
+            role: profile?.role,
+            branch_id: profile?.branch_id,
+          }),
         });
-        if (emailError) throw emailError;
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to update profile');
+        }
+      } else {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ full_name: profileData.full_name })
+          .eq('id', profile?.id);
+
+        if (profileError) throw profileError;
       }
 
-      setProfileSuccess('Profile updated successfully!');
-      window.location.reload();
+      setProfileSuccess('Profile updated successfully! Refreshing...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error: any) {
       console.error('Error updating profile:', error);
       setProfileError(error.message || 'Error updating profile');

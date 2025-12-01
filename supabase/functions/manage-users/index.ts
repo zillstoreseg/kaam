@@ -88,7 +88,10 @@ Deno.serve(async (req: Request) => {
         if (profileError) throw profileError;
 
         const updateData: any = {};
-        if (email) updateData.email = email;
+        if (email) {
+          updateData.email = email;
+          updateData.email_confirm = true;
+        }
         if (password) updateData.password = password;
 
         if (Object.keys(updateData).length > 0) {
