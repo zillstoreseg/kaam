@@ -455,6 +455,91 @@ export default function Students() {
     }
   }
 
+  async function createStudentInvoice(student: any) {
+    try {
+      const selectedPackage = packages.find(p => p.id === student.package_id);
+      if (!selectedPackage) return;
+
+      const selectedScheme = student.scheme_id ? schemes.find(s => s.id === student.scheme_id) : null;
+      const vatRate = settings?.vat_rate || 0;
+
+      // Calculate pricing
+      let packagePrice = selectedPackage.price;
+      let discount = 0;
+
+      if (selectedScheme) {
+        if (selectedScheme.discount_type === 'percentage') {
+          discount = (packagePrice * (selectedScheme.discount_value || 0)) / 100;
+        } else {
+          discount = selectedScheme.discount_value || 0;
+        }
+      }
+
+      const subtotal = packagePrice - discount;
+      const vatAmount = (subtotal * vatRate) / 100;
+      const totalAmount = subtotal + vatAmount;
+
+      // Get next invoice number
+      const { data: lastInvoice } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let nextNumber = 1;
+      if (lastInvoice?.invoice_number) {
+        const lastNumber = parseInt(lastInvoice.invoice_number.replace('INV-', ''));
+        nextNumber = lastNumber + 1;
+      }
+      const invoiceNumber = `INV-${String(nextNumber).padStart(6, '0')}`;
+
+      // Create invoice
+      const invoiceData = {
+        invoice_number: invoiceNumber,
+        branch_id: student.branch_id,
+        customer_id: student.id,
+        customer_name: student.full_name,
+        customer_phone: student.phone1,
+        customer_email: student.email,
+        subtotal: subtotal,
+        vat_rate: vatRate,
+        vat_amount: vatAmount,
+        total_amount: totalAmount,
+        payment_method: 'cash' as const,
+        payment_status: 'paid' as const,
+        amount_paid: totalAmount,
+        sold_by: profile?.id || '',
+        notes: `New Membership - Package: ${selectedPackage.name}${selectedScheme ? ` | Scheme: ${selectedScheme.name}` : ''} | Start: ${student.package_start} | End: ${student.package_end}`,
+        invoice_date: new Date().toISOString(),
+      };
+
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert(invoiceData)
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Create invoice item
+      if (invoice) {
+        await supabase.from('invoice_items').insert({
+          invoice_id: invoice.id,
+          stock_item_id: null,
+          item_name: selectedPackage.name,
+          item_description: `Membership Package - ${student.package_start} to ${student.package_end}`,
+          quantity: 1,
+          unit_price: packagePrice,
+          total_price: subtotal,
+        });
+      }
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      throw error;
+    }
+  }
+
   async function handleSaveStudent() {
     if (!formData.full_name || !formData.phone1 || !formData.package_id || !formData.branch_id || !formData.package_start || !formData.package_end) {
       alert('Please fill all required fields');
@@ -495,12 +580,20 @@ export default function Students() {
         if (error) throw error;
         alert('Student updated successfully!');
       } else {
-        const { error } = await supabase
+        const { data: newStudent, error } = await supabase
           .from('students')
-          .insert(studentData);
+          .insert(studentData)
+          .select()
+          .single();
 
         if (error) throw error;
-        alert('Student added successfully!');
+
+        // Create invoice for new student
+        if (newStudent) {
+          await createStudentInvoice(newStudent);
+        }
+
+        alert('Student registered successfully! Invoice created.');
       }
 
       setShowAddModal(false);
@@ -1072,7 +1165,19 @@ export default function Students() {
                   </label>
                   <select
                     value={formData.package_id}
-                    onChange={(e) => setFormData({ ...formData, package_id: e.target.value })}
+                    onChange={(e) => {
+                      const selectedPackage = packages.find(p => p.id === e.target.value);
+                      let newEndDate = formData.package_end;
+
+                      if (selectedPackage && formData.package_start) {
+                        const startDate = new Date(formData.package_start);
+                        const endDate = new Date(startDate);
+                        endDate.setMonth(endDate.getMonth() + (selectedPackage.duration_months || 1));
+                        newEndDate = endDate.toISOString().split('T')[0];
+                      }
+
+                      setFormData({ ...formData, package_id: e.target.value, package_end: newEndDate });
+                    }}
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
                     required
                   >
@@ -1150,7 +1255,22 @@ export default function Students() {
                   <input
                     type="date"
                     value={formData.package_start}
-                    onChange={(e) => setFormData({ ...formData, package_start: e.target.value })}
+                    onChange={(e) => {
+                      const newStartDate = e.target.value;
+                      let newEndDate = formData.package_end;
+
+                      if (formData.package_id && newStartDate) {
+                        const selectedPackage = packages.find(p => p.id === formData.package_id);
+                        if (selectedPackage) {
+                          const startDate = new Date(newStartDate);
+                          const endDate = new Date(startDate);
+                          endDate.setMonth(endDate.getMonth() + (selectedPackage.duration_months || 1));
+                          newEndDate = endDate.toISOString().split('T')[0];
+                        }
+                      }
+
+                      setFormData({ ...formData, package_start: newStartDate, package_end: newEndDate });
+                    }}
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
                     required
                   />
