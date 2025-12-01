@@ -104,16 +104,6 @@ export default function Login() {
           >
             {loading ? t('common.loading') : t('auth.login')}
           </button>
-
-          <div className="text-center space-y-2">
-            <button
-              type="button"
-              onClick={() => navigate('/forgot-password')}
-              className="text-red-700 hover:text-red-800 text-sm"
-            >
-              {t('auth.forgotPassword')}
-            </button>
-          </div>
         </form>
       </div>
     </div>

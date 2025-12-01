@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { Save, Building2, FileText, MessageSquare, Shield, Mail } from 'lucide-react';
+import { Save, Building2, FileText, MessageSquare, Shield, Mail, Key } from 'lucide-react';
 import PermissionsManager from '../components/PermissionsManager';
 
 export default function Settings() {
   const { profile } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'general' | 'permissions'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'security'>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SettingsType | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
   const [formData, setFormData] = useState({
     academy_name: '',
     logo_url: '',
@@ -104,6 +109,45 @@ export default function Settings() {
     }
   }
 
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!newPassword || !confirmPassword) {
+      setPasswordError('Please fill in all password fields');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordSuccess('Password changed successfully!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      setPasswordError(error.message || 'Error changing password');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <div className="text-center py-12">Loading...</div>;
 
   return (
@@ -113,22 +157,22 @@ export default function Settings() {
         <p className="text-gray-600 mt-1">Configure your academy details and system preferences</p>
       </div>
 
-      {profile?.role === 'super_admin' && (
-        <div className="mb-6 flex gap-4 border-b">
-          <button
-            type="button"
-            onClick={() => setActiveTab('general')}
-            className={`px-6 py-3 font-semibold transition ${
-              activeTab === 'general'
-                ? 'text-red-700 border-b-2 border-red-700'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              General Settings
-            </div>
-          </button>
+      <div className="mb-6 flex gap-4 border-b">
+        <button
+          type="button"
+          onClick={() => setActiveTab('general')}
+          className={`px-6 py-3 font-semibold transition ${
+            activeTab === 'general'
+              ? 'text-red-700 border-b-2 border-red-700'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Building2 className="w-5 h-5" />
+            General Settings
+          </div>
+        </button>
+        {profile?.role === 'super_admin' && (
           <button
             type="button"
             onClick={() => setActiveTab('permissions')}
@@ -143,11 +187,89 @@ export default function Settings() {
               Role Permissions
             </div>
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={() => setActiveTab('security')}
+          className={`px-6 py-3 font-semibold transition ${
+            activeTab === 'security'
+              ? 'text-red-700 border-b-2 border-red-700'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Key className="w-5 h-5" />
+            Security
+          </div>
+        </button>
+      </div>
 
       {activeTab === 'permissions' && profile?.role === 'super_admin' ? (
         <PermissionsManager />
+      ) : activeTab === 'security' ? (
+        <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl">
+          <div className="flex items-center gap-2 mb-6">
+            <Key className="w-6 h-6 text-red-700" />
+            <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
+          </div>
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                New Password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                placeholder="Enter new password"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                placeholder="Confirm new password"
+                required
+              />
+            </div>
+
+            {passwordError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {passwordError}
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                {passwordSuccess}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full bg-red-700 text-white px-6 py-3 rounded-lg hover:bg-red-800 transition disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+            >
+              <Key className="w-5 h-5" />
+              {saving ? 'Changing Password...' : 'Change Password'}
+            </button>
+          </form>
+
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> Your password must be at least 6 characters long. After changing your password, you will remain logged in.
+            </p>
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-lg shadow-md p-6">

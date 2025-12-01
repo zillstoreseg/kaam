@@ -147,6 +147,29 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      case 'reset_password': {
+        const { user_id, new_password } = data;
+
+        if (!new_password || new_password.length < 6) {
+          return new Response(
+            JSON.stringify({ error: 'Password must be at least 6 characters' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { error: passwordError } = await supabase.auth.admin.updateUserById(
+          user_id,
+          { password: new_password }
+        );
+
+        if (passwordError) throw passwordError;
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),

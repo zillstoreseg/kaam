@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, Trash2, X, User, Mail, Shield } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, User, Mail, Shield, Key } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -179,6 +179,46 @@ export default function Users() {
     }
   }
 
+  async function handleResetPassword(userId: string, userName: string) {
+    const newPassword = prompt(`Enter new password for ${userName}:`);
+    if (!newPassword) return;
+
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'reset_password',
+          user_id: userId,
+          new_password: newPassword
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      alert('Password reset successfully!');
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      alert(`Error: ${error.message || 'Failed to reset password'}`);
+    }
+  }
+
   if (loading) return <div className="text-center py-12">{t('common.loading')}</div>;
 
   return (
@@ -257,12 +297,21 @@ export default function Users() {
                       <button
                         onClick={() => openEditModal(user)}
                         className="text-blue-600 hover:text-blue-900"
+                        title="Edit user"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => handleResetPassword(user.id, user.full_name)}
+                        className="text-orange-600 hover:text-orange-900"
+                        title="Reset password"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(user.id)}
                         className="text-red-600 hover:text-red-900"
+                        title="Delete user"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
