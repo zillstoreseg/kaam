@@ -11,8 +11,8 @@ interface LanguageContextType {
 
 const translations: Record<Language, Record<string, string>> = {
   en: {
-    'app.name': 'Karate Academy',
-    'app.subtitle': 'Attendance Manager',
+    'app.name': 'Karate Pro',
+    'app.subtitle': 'System',
     'nav.dashboard': 'Dashboard',
     'nav.students': 'Students',
     'nav.attendance': 'Attendance',
@@ -188,8 +188,8 @@ const translations: Record<Language, Record<string, string>> = {
     'stockInventory.saveCount': 'Save Count',
   },
   ar: {
-    'app.name': 'أكاديمية الكاراتيه',
-    'app.subtitle': 'إدارة الحضور',
+    'app.name': 'كاراتيه برو',
+    'app.subtitle': 'نظام',
     'nav.dashboard': 'لوحة التحكم',
     'nav.students': 'الطلاب',
     'nav.attendance': 'الحضور',
@@ -365,8 +365,8 @@ const translations: Record<Language, Record<string, string>> = {
     'stockInventory.saveCount': 'حفظ العدد',
   },
   hi: {
-    'app.name': 'कराटे अकादमी',
-    'app.subtitle': 'उपस्थिति प्रबंधक',
+    'app.name': 'कराटे प्रो',
+    'app.subtitle': 'सिस्टम',
     'nav.dashboard': 'डैशबोर्ड',
     'nav.students': 'छात्र',
     'nav.attendance': 'उपस्थिति',
@@ -542,8 +542,8 @@ const translations: Record<Language, Record<string, string>> = {
     'stockInventory.saveCount': 'गणना सहेजें',
   },
   ml: {
-    'app.name': 'കരാട്ടെ അക്കാദമി',
-    'app.subtitle': 'ഹാജർ മാനേജർ',
+    'app.name': 'കരാട്ടെ പ്രോ',
+    'app.subtitle': 'സിസ്റ്റം',
     'nav.dashboard': 'ഡാഷ്ബോർഡ്',
     'nav.students': 'വിദ്യാർത്ഥികൾ',
     'nav.attendance': 'ഹാജർ',
@@ -719,8 +719,8 @@ const translations: Record<Language, Record<string, string>> = {
     'stockInventory.saveCount': 'എണ്ണം സേവ് ചെയ്യുക',
   },
   ur: {
-    'app.name': 'کراٹے اکیڈمی',
-    'app.subtitle': 'حاضری مینیجر',
+    'app.name': 'کراٹے پرو',
+    'app.subtitle': 'نظام',
     'nav.dashboard': 'ڈیش بورڈ',
     'nav.students': 'طلباء',
     'nav.attendance': 'حاضری',
@@ -896,8 +896,8 @@ const translations: Record<Language, Record<string, string>> = {
     'stockInventory.saveCount': 'تعداد محفوظ کریں',
   },
   fil: {
-    'app.name': 'Karate Academy',
-    'app.subtitle': 'Attendance Manager',
+    'app.name': 'Karate Pro',
+    'app.subtitle': 'System',
     'nav.dashboard': 'Dashboard',
     'nav.students': 'Mga Estudyante',
     'nav.attendance': 'Pagdalo',
