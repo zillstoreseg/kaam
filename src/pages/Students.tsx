@@ -69,6 +69,7 @@ export default function Students() {
     referred_by_student_id: '',
     package_start: '',
     package_end: '',
+    payment_method: 'cash' as 'cash' | 'card' | 'bank_transfer',
     notes: '',
     photo_url: '',
     trial_student: false,
@@ -352,6 +353,7 @@ export default function Students() {
       referred_by_student_id: '',
       package_start: new Date().toISOString().split('T')[0],
       package_end: '',
+      payment_method: 'cash' as 'cash' | 'card' | 'bank_transfer',
       notes: '',
       photo_url: '',
       trial_student: false,
@@ -430,6 +432,7 @@ export default function Students() {
       referred_by_student_id: (student as any).referred_by_student_id || '',
       package_start: student.package_start || '',
       package_end: student.package_end || '',
+      payment_method: 'cash' as 'cash' | 'card' | 'bank_transfer',
       notes: student.notes || '',
       photo_url: student.photo_url || '',
       trial_student: student.trial_student || false,
@@ -455,7 +458,7 @@ export default function Students() {
     }
   }
 
-  async function createStudentInvoice(student: any) {
+  async function createStudentInvoice(student: any, paymentMethod: 'cash' | 'card' | 'bank_transfer') {
     try {
       const selectedPackage = packages.find(p => p.id === student.package_id);
       if (!selectedPackage) return;
@@ -506,7 +509,7 @@ export default function Students() {
         vat_rate: vatRate,
         vat_amount: vatAmount,
         total_amount: totalAmount,
-        payment_method: 'cash' as const,
+        payment_method: paymentMethod,
         payment_status: 'paid' as const,
         amount_paid: totalAmount,
         sold_by: profile?.id || '',
@@ -602,7 +605,7 @@ export default function Students() {
 
         // Create invoice for new student
         if (newStudent) {
-          const invoice = await createStudentInvoice(newStudent);
+          const invoice = await createStudentInvoice(newStudent, formData.payment_method);
 
           // Show invoice modal
           if (invoice) {
@@ -1244,22 +1247,13 @@ export default function Students() {
 
                 {formData.referral_source === 'friend' && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Referred by Student *
-                    </label>
-                    <select
+                    <SearchableSelect
+                      options={allStudents.map((s: any) => ({ value: s.id, label: s.full_name }))}
                       value={formData.referred_by_student_id}
-                      onChange={(e) => setFormData({ ...formData, referred_by_student_id: e.target.value })}
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
-                      required
-                    >
-                      <option value="">Select student...</option>
-                      {allStudents.map((student: any) => (
-                        <option key={student.id} value={student.id}>
-                          {student.full_name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setFormData({ ...formData, referred_by_student_id: value })}
+                      placeholder="Search student..."
+                      label="Referred by Student *"
+                    />
                   </div>
                 )}
 
@@ -1302,6 +1296,22 @@ export default function Students() {
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Payment Method *
+                  </label>
+                  <select
+                    value={formData.payment_method}
+                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as 'cash' | 'card' | 'bank_transfer' })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
                 </div>
 
                 <div className="md:col-span-2">
