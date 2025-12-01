@@ -1,8 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, X } from 'lucide-react';
 
+interface OptionType {
+  value: string;
+  label: string;
+}
+
 interface SearchableSelectProps {
-  options: string[];
+  options: string[] | OptionType[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -23,8 +28,12 @@ export default function SearchableSelect({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filteredOptions = options.filter((option) =>
-    option.toLowerCase().includes(searchTerm.toLowerCase())
+  const normalizedOptions: OptionType[] = options.map(opt =>
+    typeof opt === 'string' ? { value: opt, label: opt } : opt
+  );
+
+  const filteredOptions = normalizedOptions.filter((option) =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -41,11 +50,14 @@ export default function SearchableSelect({
     }
   }, [isOpen]);
 
-  const handleSelect = (option: string) => {
-    onChange(option);
+  const handleSelect = (optionValue: string) => {
+    onChange(optionValue);
     setIsOpen(false);
     setSearchTerm('');
   };
+
+  const selectedOption = normalizedOptions.find(opt => opt.value === value);
+  const displayValue = selectedOption ? selectedOption.label : '';
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -70,8 +82,8 @@ export default function SearchableSelect({
         }}
         className="w-full px-4 py-2 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-red-700 focus:border-transparent bg-white flex items-center justify-between"
       >
-        <span className={value ? 'text-gray-900' : 'text-gray-400'}>
-          {value || placeholder}
+        <span className={displayValue ? 'text-gray-900' : 'text-gray-400'}>
+          {displayValue || placeholder}
         </span>
         <div className="flex items-center gap-2">
           {value && (
@@ -104,13 +116,13 @@ export default function SearchableSelect({
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <div
-                  key={option}
-                  onClick={() => handleSelect(option)}
+                  key={option.value}
+                  onClick={() => handleSelect(option.value)}
                   className={`px-4 py-2 cursor-pointer hover:bg-red-50 ${
-                    value === option ? 'bg-red-100 text-red-700 font-medium' : 'text-gray-700'
+                    value === option.value ? 'bg-red-100 text-red-700 font-medium' : 'text-gray-700'
                   }`}
                 >
-                  {option}
+                  {option.label}
                 </div>
               ))
             ) : (
