@@ -109,6 +109,7 @@ export default function Users() {
             action: 'update',
             user_id: editingUser.id,
             full_name: formData.full_name,
+            email: formData.email,
             role: formData.role,
             branch_id: formData.branch_id,
             ...(formData.password && { password: formData.password }),
@@ -360,15 +361,11 @@ export default function Users() {
                 </label>
                 <input
                   type="email"
-                  required={!editingUser}
-                  disabled={!!editingUser}
+                  required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
                 />
-                {editingUser && (
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                )}
               </div>
 
               <div>

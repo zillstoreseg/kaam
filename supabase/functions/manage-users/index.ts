@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'update': {
-        const { user_id, full_name, role, branch_id, password } = data;
+        const { user_id, full_name, email, role, branch_id, password } = data;
 
         const { error: profileError } = await supabase
           .from('profiles')
@@ -87,12 +87,16 @@ Deno.serve(async (req: Request) => {
 
         if (profileError) throw profileError;
 
-        if (password) {
-          const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        const updateData: any = {};
+        if (email) updateData.email = email;
+        if (password) updateData.password = password;
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: authError } = await supabase.auth.admin.updateUserById(
             user_id,
-            { password }
+            updateData
           );
-          if (passwordError) throw passwordError;
+          if (authError) throw authError;
         }
 
         return new Response(

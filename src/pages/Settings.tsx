@@ -17,6 +17,12 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    email: '',
+  });
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
   const [formData, setFormData] = useState({
     academy_name: '',
     logo_url: '',
@@ -46,6 +52,7 @@ export default function Settings() {
 
   useEffect(() => {
     loadSettings();
+    loadProfile();
   }, []);
 
   async function loadSettings() {
@@ -85,6 +92,20 @@ export default function Settings() {
       console.error('Error loading settings:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadProfile() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && profile) {
+        setProfileData({
+          full_name: profile.full_name || '',
+          email: user.email || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
     }
   }
 
@@ -143,6 +164,43 @@ export default function Settings() {
     } catch (error: any) {
       console.error('Error changing password:', error);
       setPasswordError(error.message || 'Error changing password');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleProfileUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+
+    if (!profileData.full_name || !profileData.email) {
+      setProfileError('Please fill in all fields');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ full_name: profileData.full_name })
+        .eq('id', profile?.id);
+
+      if (profileError) throw profileError;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.email !== profileData.email) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: profileData.email
+        });
+        if (emailError) throw emailError;
+      }
+
+      setProfileSuccess('Profile updated successfully!');
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      setProfileError(error.message || 'Error updating profile');
     } finally {
       setSaving(false);
     }
@@ -207,67 +265,127 @@ export default function Settings() {
       {activeTab === 'permissions' && profile?.role === 'super_admin' ? (
         <PermissionsManager />
       ) : activeTab === 'security' ? (
-        <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl">
-          <div className="flex items-center gap-2 mb-6">
-            <Key className="w-6 h-6 text-red-700" />
-            <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
+        <div className="space-y-6 max-w-2xl">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <User className="w-6 h-6 text-red-700" />
+              <h2 className="text-xl font-bold text-gray-900">My Profile</h2>
+            </div>
+
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={profileData.full_name}
+                  onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={profileData.email}
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+
+              {profileError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {profileError}
+                </div>
+              )}
+
+              {profileSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  {profileSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-red-700 text-white px-6 py-3 rounded-lg hover:bg-red-800 transition disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+              >
+                <Save className="w-5 h-5" />
+                {saving ? 'Updating Profile...' : 'Update Profile'}
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={handlePasswordChange} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                New Password
-              </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
-                placeholder="Enter new password"
-                required
-              />
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <Key className="w-6 h-6 text-red-700" />
+              <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
-                placeholder="Confirm new password"
-                required
-              />
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Enter new password"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="Confirm new password"
+                  required
+                />
+              </div>
+
+              {passwordError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {passwordError}
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  {passwordSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-red-700 text-white px-6 py-3 rounded-lg hover:bg-red-800 transition disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+              >
+                <Key className="w-5 h-5" />
+                {saving ? 'Changing Password...' : 'Change Password'}
+              </button>
+            </form>
+
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Your password must be at least 6 characters long. After changing your password, you will remain logged in.
+              </p>
             </div>
-
-            {passwordError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {passwordError}
-              </div>
-            )}
-
-            {passwordSuccess && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-                {passwordSuccess}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full bg-red-700 text-white px-6 py-3 rounded-lg hover:bg-red-800 transition disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
-            >
-              <Key className="w-5 h-5" />
-              {saving ? 'Changing Password...' : 'Change Password'}
-            </button>
-          </form>
-
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Your password must be at least 6 characters long. After changing your password, you will remain logged in.
-            </p>
           </div>
         </div>
       ) : (
