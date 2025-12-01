@@ -137,7 +137,7 @@ function PieChart({ data }: { data: any[] }) {
 function TopReferrers({ students }: { students: any[] }) {
   const referrerCounts = students.reduce((acc: any, student: any) => {
     if (student.referral_source === 'friend' && student.referred_by_student_id) {
-      const referrerName = student.students?.full_name || 'Unknown';
+      const referrerName = student.referrer_name || 'Unknown';
       const referrerId = student.referred_by_student_id;
       if (!acc[referrerId]) {
         acc[referrerId] = { name: referrerName, count: 0, students: [] };
@@ -354,7 +354,7 @@ export default function Dashboard() {
     try {
       let query = supabase
         .from('students')
-        .select('referral_source, id, full_name, referred_by_student_id, students!students_referred_by_student_id_fkey(full_name)');
+        .select('referral_source, id, full_name, referred_by_student_id');
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
@@ -374,7 +374,27 @@ export default function Dashboard() {
         count,
       }));
 
-      setReferralData({ sources: referralArray, details: data || [] } as any);
+      const studentIds = [...new Set(data?.map(s => s.referred_by_student_id).filter(Boolean))];
+      let referrerNames: Record<string, string> = {};
+
+      if (studentIds.length > 0) {
+        const { data: referrers } = await supabase
+          .from('students')
+          .select('id, full_name')
+          .in('id', studentIds);
+
+        referrerNames = (referrers || []).reduce((acc: any, r: any) => {
+          acc[r.id] = r.full_name;
+          return acc;
+        }, {});
+      }
+
+      const enrichedData = data?.map((student: any) => ({
+        ...student,
+        referrer_name: student.referred_by_student_id ? referrerNames[student.referred_by_student_id] : null
+      }));
+
+      setReferralData({ sources: referralArray, details: enrichedData || [] } as any);
     } catch (error) {
       console.error('Error loading referral data:', error);
     }
