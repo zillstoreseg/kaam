@@ -540,7 +540,12 @@ export default function Students() {
         // Return complete invoice with items and related data
         return {
           ...invoice,
-          items: invoiceItem ? [invoiceItem] : [],
+          items: invoiceItem ? [{
+            description: invoiceItem.item_description || invoiceItem.item_name,
+            quantity: invoiceItem.quantity,
+            price: invoiceItem.unit_price,
+            total: invoiceItem.total_price,
+          }] : [],
           branch: branches.find(b => b.id === student.branch_id),
           customer: student,
         };
