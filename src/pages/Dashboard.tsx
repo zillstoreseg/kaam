@@ -47,10 +47,12 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<(AttendanceAlert & { student?: Student })[]>([]);
   const [showTodayAttendance, setShowTodayAttendance] = useState(false);
   const [todayAttendanceList, setTodayAttendanceList] = useState<any[]>([]);
+  const [referralData, setReferralData] = useState<any[]>([]);
 
   useEffect(() => {
     loadStats();
     loadAlerts();
+    loadReferralData();
   }, [profile]);
 
   async function loadStats() {
@@ -186,6 +188,36 @@ export default function Dashboard() {
       setAlerts(data || []);
     } catch (error) {
       console.error('Error loading alerts:', error);
+    }
+  }
+
+  async function loadReferralData() {
+    try {
+      let query = supabase
+        .from('students')
+        .select('referral_source, id');
+
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        query = query.eq('branch_id', profile.branch_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const referralCounts = data?.reduce((acc: any, student: any) => {
+        const source = student.referral_source || 'other';
+        acc[source] = (acc[source] || 0) + 1;
+        return acc;
+      }, {});
+
+      const referralArray = Object.entries(referralCounts || {}).map(([source, count]) => ({
+        source,
+        count,
+      }));
+
+      setReferralData(referralArray as any[]);
+    } catch (error) {
+      console.error('Error loading referral data:', error);
     }
   }
 
@@ -328,6 +360,56 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {referralData.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Student Acquisition Sources</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {referralData
+              .sort((a, b) => (b.count as number) - (a.count as number))
+              .map((item: any) => {
+                const sourceNames: Record<string, string> = {
+                  friend: 'Friend Referral',
+                  google: 'Google',
+                  facebook: 'Facebook',
+                  instagram: 'Instagram',
+                  walk_in: 'Walk-in',
+                  other: 'Other',
+                };
+                const sourceColors: Record<string, string> = {
+                  friend: 'bg-blue-100 text-blue-800 border-blue-300',
+                  google: 'bg-red-100 text-red-800 border-red-300',
+                  facebook: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+                  instagram: 'bg-pink-100 text-pink-800 border-pink-300',
+                  walk_in: 'bg-green-100 text-green-800 border-green-300',
+                  other: 'bg-gray-100 text-gray-800 border-gray-300',
+                };
+                const totalStudents = referralData.reduce((sum: number, d: any) => sum + (d.count as number), 0);
+                const percentage = ((item.count as number / totalStudents) * 100).toFixed(1);
+
+                return (
+                  <div
+                    key={item.source}
+                    className={`border-2 rounded-lg p-4 ${sourceColors[item.source] || sourceColors.other}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">{sourceNames[item.source] || item.source}</p>
+                        <p className="text-2xl font-bold mt-1">{item.count}</p>
+                        <p className="text-xs mt-1 opacity-75">{percentage}% of total</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="w-12 h-12 rounded-full bg-white bg-opacity-50 flex items-center justify-center">
+                          <span className="text-2xl font-bold">{percentage}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {showAlertsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

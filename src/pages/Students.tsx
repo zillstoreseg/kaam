@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType } from '../lib/supabase';
+import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType, Scheme } from '../lib/supabase';
 import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 import InvoiceModal from '../components/InvoiceModal';
 import SearchableSelect from '../components/SearchableSelect';
@@ -27,6 +27,8 @@ export default function Students() {
   const [students, setStudents] = useState<StudentWithDetails[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [packages, setPackages] = useState<PackageType[]>([]);
+  const [schemes, setSchemes] = useState<Scheme[]>([]);
+  const [allStudents, setAllStudents] = useState<StudentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
@@ -62,6 +64,9 @@ export default function Students() {
     address: '',
     package_id: '',
     branch_id: '',
+    scheme_id: '',
+    referral_source: 'other',
+    referred_by_student_id: '',
     package_start: '',
     package_end: '',
     notes: '',
@@ -75,22 +80,26 @@ export default function Students() {
 
   async function loadData() {
     try {
-      let studentsQuery = supabase.from('students').select('*, branch:branches(*), package:packages(*)').order('created_at', { ascending: false });
+      let studentsQuery = supabase.from('students').select('*, branch:branches(*), package:packages(*), scheme:schemes(*), referred_by:students!referred_by_student_id(id, full_name)').order('created_at', { ascending: false });
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
 
-      const [studentsRes, branchesRes, packagesRes, settingsRes] = await Promise.all([
+      const [studentsRes, branchesRes, packagesRes, schemesRes, allStudentsRes, settingsRes] = await Promise.all([
         studentsQuery,
         supabase.from('branches').select('*').order('name'),
         supabase.from('packages').select('*').order('name'),
+        supabase.from('schemes').select('*').order('name'),
+        supabase.from('students').select('id, full_name').order('full_name'),
         supabase.from('settings').select('*').maybeSingle(),
       ]);
 
       if (studentsRes.data) setStudents(studentsRes.data as StudentWithDetails[]);
       if (branchesRes.data) setBranches(branchesRes.data as Branch[]);
       if (packagesRes.data) setPackages(packagesRes.data as PackageType[]);
+      if (schemesRes.data) setSchemes(schemesRes.data as Scheme[]);
+      if (allStudentsRes.data) setAllStudents(allStudentsRes.data as any);
       if (settingsRes.data) setSettings(settingsRes.data as SettingsType);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -338,6 +347,9 @@ export default function Students() {
       address: '',
       package_id: '',
       branch_id: profile?.role === 'branch_manager' ? profile.branch_id || '' : '',
+      scheme_id: '',
+      referral_source: 'other',
+      referred_by_student_id: '',
       package_start: new Date().toISOString().split('T')[0],
       package_end: '',
       notes: '',
@@ -413,6 +425,9 @@ export default function Students() {
       address: student.address || '',
       package_id: student.package_id || '',
       branch_id: student.branch_id,
+      scheme_id: (student as any).scheme_id || '',
+      referral_source: (student as any).referral_source || 'other',
+      referred_by_student_id: (student as any).referred_by_student_id || '',
       package_start: student.package_start || '',
       package_end: student.package_end || '',
       notes: student.notes || '',
@@ -460,6 +475,9 @@ export default function Students() {
         address: formData.address,
         package_id: formData.package_id,
         branch_id: formData.branch_id,
+        scheme_id: formData.scheme_id || null,
+        referral_source: formData.referral_source,
+        referred_by_student_id: formData.referred_by_student_id || null,
         package_start: formData.package_start,
         package_end: formData.package_end,
         notes: formData.notes,
@@ -1066,6 +1084,64 @@ export default function Students() {
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Scheme
+                  </label>
+                  <select
+                    value={formData.scheme_id}
+                    onChange={(e) => setFormData({ ...formData, scheme_id: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  >
+                    <option value="">Select scheme (optional)...</option>
+                    {schemes.map((scheme) => (
+                      <option key={scheme.id} value={scheme.id}>
+                        {scheme.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    How did you find us? *
+                  </label>
+                  <select
+                    value={formData.referral_source}
+                    onChange={(e) => setFormData({ ...formData, referral_source: e.target.value, referred_by_student_id: e.target.value === 'friend' ? formData.referred_by_student_id : '' })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  >
+                    <option value="other">Other</option>
+                    <option value="friend">Friend Referral</option>
+                    <option value="google">Google</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="walk_in">Walk-in</option>
+                  </select>
+                </div>
+
+                {formData.referral_source === 'friend' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Referred by Student *
+                    </label>
+                    <select
+                      value={formData.referred_by_student_id}
+                      onChange={(e) => setFormData({ ...formData, referred_by_student_id: e.target.value })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                      required
+                    >
+                      <option value="">Select student...</option>
+                      {allStudents.map((student: any) => (
+                        <option key={student.id} value={student.id}>
+                          {student.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
