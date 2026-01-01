@@ -22,6 +22,9 @@ import ExamEligibility from './pages/ExamEligibility';
 import AttendanceReports from './pages/AttendanceReports';
 import Expenses from './pages/Expenses';
 import InactivePlayers from './pages/InactivePlayers';
+import ActivityLog from './pages/ActivityLog';
+import LoginHistory from './pages/LoginHistory';
+import SecurityAlerts from './pages/SecurityAlerts';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -97,6 +100,9 @@ function App() {
               <Route path="attendance-reports" element={<AttendanceReports />} />
               <Route path="expenses" element={<Expenses />} />
               <Route path="inactive-players" element={<InactivePlayers />} />
+              <Route path="activity-log" element={<ActivityLog />} />
+              <Route path="login-history" element={<LoginHistory />} />
+              <Route path="security-alerts" element={<SecurityAlerts />} />
               <Route path="users" element={<Users />} />
               <Route path="settings" element={<Settings />} />
             </Route>

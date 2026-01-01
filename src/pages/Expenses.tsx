@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, Expense, Branch } from '../lib/supabase';
 import { DollarSign, Plus, X, Calendar, Filter, Download, TrendingUp } from 'lucide-react';
+import { logAudit, AuditActions, AuditEntityTypes, getChangedFields } from '../lib/auditLogger';
 
 interface ExpenseWithDetails extends Expense {
   branch?: Branch;
@@ -99,9 +100,46 @@ export default function Expenses() {
           .update({ ...expenseData, updated_at: new Date().toISOString() })
           .eq('id', editingExpense.id);
         if (error) throw error;
+
+        try {
+          const changedFields = getChangedFields(editingExpense, expenseData);
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.UPDATE,
+            entityType: AuditEntityTypes.EXPENSE,
+            entityId: editingExpense.id,
+            summaryKey: 'audit.expense.updated',
+            summaryParams: {
+              amount: expenseData.amount,
+              category: expenseData.category,
+            },
+            beforeData: editingExpense,
+            afterData: expenseData,
+            branchId: expenseData.branch_id,
+            metadata: { changedFields },
+          });
+        } catch (logError) {
+          console.error('Failed to log expense update:', logError);
+        }
       } else {
-        const { error } = await supabase.from('expenses').insert([expenseData]);
+        const { data, error } = await supabase.from('expenses').insert([expenseData]).select().single();
         if (error) throw error;
+
+        try {
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.CREATE,
+            entityType: AuditEntityTypes.EXPENSE,
+            entityId: data?.id,
+            summaryKey: 'audit.expense.created',
+            summaryParams: {
+              amount: expenseData.amount,
+              category: expenseData.category,
+            },
+            afterData: expenseData,
+            branchId: expenseData.branch_id,
+          });
+        } catch (logError) {
+          console.error('Failed to log expense creation:', logError);
+        }
       }
 
       setShowModal(false);
@@ -142,8 +180,30 @@ export default function Expenses() {
     if (!confirm('Are you sure you want to delete this expense?')) return;
 
     try {
+      const expenseToDelete = expenses.find(e => e.id === id);
+
       const { error } = await supabase.from('expenses').delete().eq('id', id);
       if (error) throw error;
+
+      if (expenseToDelete) {
+        try {
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.DELETE,
+            entityType: AuditEntityTypes.EXPENSE,
+            entityId: id,
+            summaryKey: 'audit.expense.deleted',
+            summaryParams: {
+              amount: expenseToDelete.amount,
+              category: expenseToDelete.category,
+            },
+            beforeData: expenseToDelete,
+            branchId: expenseToDelete.branch_id,
+          });
+        } catch (logError) {
+          console.error('Failed to log expense deletion:', logError);
+        }
+      }
+
       loadData();
     } catch (error: any) {
       console.error('Error deleting expense:', error);

@@ -55,6 +55,9 @@ export default function Settings() {
     whatsapp_message_inactive_ar: '',
     whatsapp_message_inactive_hi: '',
     whatsapp_contact_cooldown_days: 3,
+    enable_security_alerts: true,
+    large_expense_threshold: 1000,
+    show_global_logs_to_branch_admin: false,
   });
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -111,6 +114,9 @@ export default function Settings() {
           whatsapp_message_inactive_ar: data.whatsapp_message_inactive_ar || 'مرحبا {student_name}، لاحظنا أنك لم تحضر الصف منذ فترة. نحن نفتقدك! يرجى إعلامنا إذا كنت بحاجة إلى أي مساعدة. - {academy_name}',
           whatsapp_message_inactive_hi: data.whatsapp_message_inactive_hi || 'नमस्ते {student_name}, हमने देखा कि आप कुछ समय से कक्षा में नहीं आए हैं। हम आपको याद करते हैं! कृपया हमें बताएं यदि आपको किसी सहायता की आवश्यकता है। - {academy_name}',
           whatsapp_contact_cooldown_days: data.whatsapp_contact_cooldown_days || 3,
+          enable_security_alerts: data.enable_security_alerts !== undefined ? data.enable_security_alerts : true,
+          large_expense_threshold: data.large_expense_threshold || 1000,
+          show_global_logs_to_branch_admin: data.show_global_logs_to_branch_admin || false,
         });
       }
     } catch (error) {
@@ -1174,6 +1180,82 @@ export default function Settings() {
           <p className="text-sm text-blue-900">
             <strong>Note:</strong> These details will appear on all invoices and official documents. Ensure all information is accurate and complies with UAE regulations.
           </p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+          <div className="flex items-center gap-2 mb-6">
+            <Shield className="w-6 h-6 text-red-600" />
+            <h2 className="text-xl font-bold text-gray-900">Security Configuration</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="enable_security_alerts"
+                checked={formData.enable_security_alerts}
+                onChange={(e) =>
+                  setFormData({ ...formData, enable_security_alerts: e.target.checked })
+                }
+                className="w-4 h-4 text-red-700 rounded focus:ring-2 focus:ring-red-700"
+              />
+              <label htmlFor="enable_security_alerts" className="text-sm font-medium text-gray-700">
+                Enable Security Alerts
+              </label>
+            </div>
+
+            {formData.enable_security_alerts && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Large Expense Threshold (AED)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.large_expense_threshold}
+                    onChange={(e) =>
+                      setFormData({ ...formData, large_expense_threshold: parseFloat(e.target.value) || 1000 })
+                    }
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Generate security alert when an expense exceeds this amount
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="show_global_logs_to_branch_admin"
+                    checked={formData.show_global_logs_to_branch_admin}
+                    onChange={(e) =>
+                      setFormData({ ...formData, show_global_logs_to_branch_admin: e.target.checked })
+                    }
+                    className="w-4 h-4 text-red-700 rounded focus:ring-2 focus:ring-red-700"
+                  />
+                  <label htmlFor="show_global_logs_to_branch_admin" className="text-sm font-medium text-gray-700">
+                    Allow Branch Managers to view global logs
+                  </label>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900">
+                    <strong>Security Features:</strong>
+                  </p>
+                  <ul className="text-xs text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                    <li>Complete audit trail of all system operations</li>
+                    <li>Device and IP tracking for all user actions</li>
+                    <li>Tamper-resistant logs (cannot be edited or deleted)</li>
+                    <li>Login history with failed attempt tracking</li>
+                    <li>Automatic security alerts for sensitive operations</li>
+                    <li>Branch-scoped access control for audit logs</li>
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <button

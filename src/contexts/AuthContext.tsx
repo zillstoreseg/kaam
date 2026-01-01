@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
+import { logAudit, AuditActions, AuditEntityTypes } from '../lib/auditLogger';
 
 interface AuthContextType {
   user: User | null;
@@ -63,10 +64,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(email: string, password: string) {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      if (error) {
+        try {
+          await logAudit('unauthenticated', {
+            action: AuditActions.FAILED_LOGIN,
+            entityType: AuditEntityTypes.AUTH,
+            summaryKey: 'audit.auth.failed_login',
+            summaryParams: { email },
+            metadata: { reason: error.message }
+          });
+        } catch (logError) {
+          console.error('Failed to log failed login:', logError);
+        }
+        return { error };
+      }
+
+      if (data.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, branch_id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (profileData) {
+          try {
+            await logAudit(profileData.role, {
+              action: AuditActions.LOGIN,
+              entityType: AuditEntityTypes.AUTH,
+              entityId: data.user.id,
+              summaryKey: 'audit.auth.login',
+              summaryParams: { email: data.user.email },
+              branchId: profileData.branch_id,
+              metadata: { email: data.user.email }
+            });
+          } catch (logError) {
+            console.error('Failed to log login:', logError);
+          }
+        }
+      }
+
       return { error };
     } catch (error) {
       return { error: error as Error };
@@ -102,6 +143,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    if (user && profile) {
+      try {
+        await logAudit(profile.role, {
+          action: AuditActions.LOGOUT,
+          entityType: AuditEntityTypes.AUTH,
+          entityId: user.id,
+          summaryKey: 'audit.auth.logout',
+          summaryParams: { email: user.email },
+          branchId: profile.branch_id,
+          metadata: { email: user.email }
+        });
+      } catch (logError) {
+        console.error('Failed to log logout:', logError);
+      }
+    }
     await supabase.auth.signOut();
   }
 

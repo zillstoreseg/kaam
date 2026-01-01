@@ -24,6 +24,10 @@ import {
   GraduationCap,
   BarChart3,
   Bell,
+  Shield,
+  Activity,
+  History,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -145,7 +149,7 @@ export default function Layout() {
     }
   }, [langMenuOpen]);
 
-  const navigation = [
+  const baseNavigation = [
     { name: t('nav.dashboard'), href: '/', icon: LayoutDashboard, page: 'dashboard' as PageName },
     { name: t('nav.students'), href: '/students', icon: Users, page: 'students' as PageName },
     { name: t('nav.attendance'), href: '/attendance', icon: ClipboardCheck, page: 'attendance' as PageName },
@@ -161,8 +165,24 @@ export default function Layout() {
     { name: 'Attendance Reports', href: '/attendance-reports', icon: BarChart3, page: 'reports' as PageName },
     { name: 'Expenses', href: '/expenses', icon: DollarSign, page: 'reports' as PageName },
     { name: t('nav.reports'), href: '/reports', icon: FileText, page: 'reports' as PageName },
+  ];
+
+  const securityNavigation = [
+    { name: 'Activity Log', href: '/activity-log', icon: Activity, page: 'reports' as PageName },
+    { name: 'Login History', href: '/login-history', icon: History, page: 'reports' as PageName },
+    { name: 'Security Alerts', href: '/security-alerts', icon: AlertTriangle, page: 'reports' as PageName },
+  ];
+
+  const adminNavigation = [
     { name: t('nav.users'), href: '/users', icon: UserCog, page: 'users' as PageName },
     { name: t('nav.settings'), href: '/settings', icon: Settings, page: 'settings' as PageName },
+  ];
+
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'branch_manager';
+  const navigation = [
+    ...baseNavigation,
+    ...(isAdmin ? securityNavigation : []),
+    ...adminNavigation,
   ];
 
   const filteredNav = navigation.filter((item) => canViewPage(item.page));
