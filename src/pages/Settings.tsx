@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
 import { Save, Building2, FileText, MessageSquare, Shield, Mail, Key, User, AlertTriangle } from 'lucide-react';
+import { logAudit, AuditActions, AuditEntityTypes, getChangedFields } from '../lib/auditLogger';
 import PermissionsManager from '../components/PermissionsManager';
 
 export default function Settings() {
@@ -153,6 +154,19 @@ export default function Settings() {
     setShowResetModal(true);
     setResetConfirmText('');
     setResetPassword('');
+
+    try {
+      logAudit(profile?.role || 'unknown', {
+        action: 'reset_preview',
+        entityType: AuditEntityTypes.SETTINGS,
+        summaryKey: 'audit.settings.reset_preview',
+        summaryParams: {},
+        branchId: profile?.branch_id,
+        metadata: { message: 'User opened reset data modal' },
+      });
+    } catch (logError) {
+      console.error('Failed to log reset preview:', logError);
+    }
   }
 
   async function performDataReset() {
@@ -195,6 +209,25 @@ export default function Settings() {
       await supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('students').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
+      try {
+        await logAudit(profile?.role || 'unknown', {
+          action: AuditActions.RESET,
+          entityType: AuditEntityTypes.SETTINGS,
+          summaryKey: 'audit.settings.reset_executed',
+          summaryParams: {
+            counts: `Students: ${resetCounts.students}, Attendance: ${resetCounts.attendance}, Exams: ${resetCounts.exams}, Expenses: ${resetCounts.expenses}, Invoices: ${resetCounts.invoices}`,
+          },
+          branchId: profile?.branch_id,
+          beforeData: resetCounts,
+          metadata: {
+            message: 'System data reset executed',
+            deletedCounts: resetCounts,
+          },
+        });
+      } catch (logError) {
+        console.error('Failed to log data reset:', logError);
+      }
+
       alert('All data has been successfully reset!');
       setShowResetModal(false);
       loadResetCounts();
@@ -230,6 +263,26 @@ export default function Settings() {
           .update({ ...formData, updated_at: new Date().toISOString() })
           .eq('id', settings.id);
         if (error) throw error;
+
+        try {
+          const changedFields = getChangedFields(settings, formData);
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.UPDATE,
+            entityType: AuditEntityTypes.SETTINGS,
+            entityId: settings.id,
+            summaryKey: 'audit.settings.updated',
+            summaryParams: {
+              fields: changedFields.join(', '),
+            },
+            beforeData: settings,
+            afterData: formData,
+            branchId: profile?.branch_id,
+            metadata: { changedFields },
+          });
+        } catch (logError) {
+          console.error('Failed to log settings update:', logError);
+        }
+
         alert('Settings saved successfully!');
         loadSettings();
       }

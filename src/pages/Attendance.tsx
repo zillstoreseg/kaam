@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Student, Attendance as AttendanceType, Package as PackageType } from '../lib/supabase';
 import { Search, Calendar, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { logAudit, AuditActions, AuditEntityTypes } from '../lib/auditLogger';
 
 export default function Attendance() {
   const { profile } = useAuth();
@@ -79,6 +80,25 @@ export default function Attendance() {
           .eq('id', existingAttendance.id);
 
         if (error) throw error;
+
+        try {
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.UPDATE,
+            entityType: AuditEntityTypes.ATTENDANCE,
+            entityId: existingAttendance.id,
+            summaryKey: 'audit.attendance.updated',
+            summaryParams: {
+              student: student.full_name,
+              status,
+              date: selectedDate,
+            },
+            beforeData: { status: existingAttendance.status },
+            afterData: { status },
+            branchId: student.branch_id,
+          });
+        } catch (logError) {
+          console.error('Failed to log attendance update:', logError);
+        }
       } else {
         const { data, error } = await supabase
           .from('attendance')
@@ -98,6 +118,24 @@ export default function Attendance() {
         if (error) throw error;
         if (data) {
           setAttendance({ ...attendance, [studentId]: data as AttendanceType });
+
+          try {
+            await logAudit(profile?.role || 'unknown', {
+              action: AuditActions.CREATE,
+              entityType: AuditEntityTypes.ATTENDANCE,
+              entityId: data.id,
+              summaryKey: 'audit.attendance.marked',
+              summaryParams: {
+                student: student.full_name,
+                status,
+                date: selectedDate,
+              },
+              afterData: { status, date: selectedDate },
+              branchId: student.branch_id,
+            });
+          } catch (logError) {
+            console.error('Failed to log attendance creation:', logError);
+          }
         }
       }
 

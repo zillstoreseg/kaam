@@ -6,6 +6,7 @@ import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2, U
 import InvoiceModal from '../components/InvoiceModal';
 import SearchableSelect from '../components/SearchableSelect';
 import { nationalities } from '../data/nationalities';
+import { logAudit, AuditActions, AuditEntityTypes, getChangedFields } from '../lib/auditLogger';
 
 interface StudentWithDetails extends Student {
   branch?: Branch;
@@ -477,6 +478,23 @@ export default function Students() {
         .eq('id', student.id);
 
       if (error) throw error;
+
+      try {
+        await logAudit(profile?.role || 'unknown', {
+          action: AuditActions.DELETE,
+          entityType: AuditEntityTypes.STUDENT,
+          entityId: student.id,
+          summaryKey: 'audit.student.deleted',
+          summaryParams: {
+            name: student.full_name,
+          },
+          beforeData: student,
+          branchId: student.branch_id,
+        });
+      } catch (logError) {
+        console.error('Failed to log student deletion:', logError);
+      }
+
       alert('Student deleted successfully!');
       loadData();
     } catch (error: any) {
@@ -633,6 +651,26 @@ export default function Students() {
           .eq('id', editingStudent.id);
 
         if (error) throw error;
+
+        try {
+          const changedFields = getChangedFields(editingStudent, studentData);
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.UPDATE,
+            entityType: AuditEntityTypes.STUDENT,
+            entityId: editingStudent.id,
+            summaryKey: 'audit.student.updated',
+            summaryParams: {
+              name: studentData.full_name,
+            },
+            beforeData: editingStudent,
+            afterData: studentData,
+            branchId: studentData.branch_id,
+            metadata: { changedFields },
+          });
+        } catch (logError) {
+          console.error('Failed to log student update:', logError);
+        }
+
         alert('Student updated successfully!');
         setShowAddModal(false);
         loadData();
@@ -644,6 +682,22 @@ export default function Students() {
           .single();
 
         if (error) throw error;
+
+        try {
+          await logAudit(profile?.role || 'unknown', {
+            action: AuditActions.CREATE,
+            entityType: AuditEntityTypes.STUDENT,
+            entityId: newStudent.id,
+            summaryKey: 'audit.student.created',
+            summaryParams: {
+              name: newStudent.full_name,
+            },
+            afterData: studentData,
+            branchId: studentData.branch_id,
+          });
+        } catch (logError) {
+          console.error('Failed to log student creation:', logError);
+        }
 
         // Create invoice for new student
         if (newStudent) {
