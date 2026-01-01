@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { Save, Building2, FileText, MessageSquare, Shield, Mail, Key, User } from 'lucide-react';
+import { Save, Building2, FileText, MessageSquare, Shield, Mail, Key, User, AlertTriangle } from 'lucide-react';
 import PermissionsManager from '../components/PermissionsManager';
 
 export default function Settings() {
   const { profile } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'security'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'permissions' | 'security' | 'danger'>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SettingsType | null>(null);
@@ -48,7 +48,19 @@ export default function Settings() {
     expired_message_days_interval: 7,
     admin_email: '',
     enable_daily_reports: false,
+    enable_data_reset: false,
   });
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetCounts, setResetCounts] = useState({
+    students: 0,
+    attendance: 0,
+    exams: 0,
+    expenses: 0,
+    invoices: 0,
+  });
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -86,12 +98,93 @@ export default function Settings() {
           expired_message_days_interval: data.expired_message_days_interval || 7,
           admin_email: data.admin_email || '',
           enable_daily_reports: data.enable_daily_reports || false,
+          enable_data_reset: data.enable_data_reset || false,
         });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadResetCounts() {
+    try {
+      const [studentsCount, attendanceCount, examsCount, expensesCount, invoicesCount] = await Promise.all([
+        supabase.from('students').select('*', { count: 'exact', head: true }),
+        supabase.from('attendance').select('*', { count: 'exact', head: true }),
+        supabase.from('exam_participation').select('*', { count: 'exact', head: true }),
+        supabase.from('expenses').select('*', { count: 'exact', head: true }),
+        supabase.from('invoices').select('*', { count: 'exact', head: true }),
+      ]);
+
+      setResetCounts({
+        students: studentsCount.count || 0,
+        attendance: attendanceCount.count || 0,
+        exams: examsCount.count || 0,
+        expenses: expensesCount.count || 0,
+        invoices: invoicesCount.count || 0,
+      });
+    } catch (error) {
+      console.error('Error loading reset counts:', error);
+    }
+  }
+
+  function openResetModal() {
+    loadResetCounts();
+    setShowResetModal(true);
+    setResetConfirmText('');
+    setResetPassword('');
+  }
+
+  async function performDataReset() {
+    if (resetConfirmText !== 'RESET') {
+      alert('Please type RESET to confirm');
+      return;
+    }
+
+    if (!resetPassword) {
+      alert('Please enter your password');
+      return;
+    }
+
+    if (!confirm('This action CANNOT be undone. All student data, attendance, exams, expenses, and invoices will be PERMANENTLY deleted. Are you absolutely sure?')) {
+      return;
+    }
+
+    try {
+      setResetting(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: resetPassword,
+      });
+
+      if (signInError) {
+        alert('Incorrect password');
+        return;
+      }
+
+      await supabase.from('promotion_log').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('exam_participation').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('exam_invitations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('attendance_alerts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('attendance').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('invoices').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('students').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+      alert('All data has been successfully reset!');
+      setShowResetModal(false);
+      loadResetCounts();
+    } catch (error: any) {
+      console.error('Error resetting data:', error);
+      alert(`Error resetting data: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -286,10 +379,108 @@ export default function Settings() {
             Security
           </div>
         </button>
+        {profile?.role === 'super_admin' && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('danger')}
+            className={`px-6 py-3 font-semibold transition ${
+              activeTab === 'danger'
+                ? 'text-red-700 border-b-2 border-red-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Danger Zone
+            </div>
+          </button>
+        )}
       </div>
 
       {activeTab === 'permissions' && profile?.role === 'super_admin' ? (
         <PermissionsManager />
+      ) : activeTab === 'danger' && profile?.role === 'super_admin' ? (
+        <div className="space-y-6">
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+              <div>
+                <h2 className="text-2xl font-bold text-red-900">Danger Zone</h2>
+                <p className="text-red-700 text-sm">Irreversible actions that affect all system data</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-6 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Data Reset Feature</h3>
+              <p className="text-gray-700 mb-4 text-sm">
+                Enable the data reset button below. This allows you to permanently delete all students, attendance records, exams, expenses, and invoices from the system.
+              </p>
+
+              <label className="flex items-center gap-3 cursor-pointer p-4 border-2 rounded-lg hover:bg-gray-50 transition">
+                <input
+                  type="checkbox"
+                  checked={formData.enable_data_reset}
+                  onChange={(e) => setFormData({ ...formData, enable_data_reset: e.target.checked })}
+                  className="w-5 h-5 text-red-600 rounded focus:ring-red-500"
+                />
+                <div>
+                  <span className="font-semibold text-gray-900">Enable Data Reset Feature</span>
+                  <p className="text-sm text-gray-600">When enabled, the reset button will appear below</p>
+                </div>
+              </label>
+
+              {formData.enable_data_reset !== settings?.enable_data_reset && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save Setting'}
+                </button>
+              )}
+            </div>
+
+            {formData.enable_data_reset && (
+              <div className="bg-white rounded-lg p-6 border-2 border-red-300">
+                <h3 className="text-lg font-semibold text-red-900 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-6 h-6" />
+                  Reset All Data
+                </h3>
+                <p className="text-gray-700 mb-4 text-sm">
+                  This will permanently delete:
+                </p>
+                <ul className="space-y-2 mb-6 text-sm text-gray-700">
+                  <li className="flex items-center gap-2">
+                    <span className="text-red-600">✗</span> All student records
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-red-600">✗</span> All attendance records
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-red-600">✗</span> All exam participation records
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-red-600">✗</span> All expenses
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-red-600">✗</span> All invoices
+                  </li>
+                </ul>
+                <p className="text-sm text-green-700 mb-6 font-medium">
+                  ✓ System settings, branches, users, packages, and belt ranks will be preserved
+                </p>
+
+                <button
+                  onClick={openResetModal}
+                  className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  Reset All Data
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       ) : activeTab === 'security' ? (
         <div className="space-y-6 max-w-2xl">
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -850,6 +1041,118 @@ export default function Settings() {
           {saving ? 'Saving...' : 'Save All Settings'}
         </button>
         </form>
+      )}
+
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b bg-red-50">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+                <h2 className="text-2xl font-bold text-red-900">Confirm Data Reset</h2>
+              </div>
+              <button onClick={() => setShowResetModal(false)}>
+                <X className="w-6 h-6 text-gray-600 hover:text-gray-900" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-700">
+                      <strong>WARNING:</strong> This action is PERMANENT and CANNOT be undone. All data will be lost forever.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Data to be Deleted:</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-gray-600">Students</p>
+                    <p className="text-2xl font-bold text-red-600">{resetCounts.students}</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-gray-600">Attendance Records</p>
+                    <p className="text-2xl font-bold text-red-600">{resetCounts.attendance}</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-gray-600">Exam Records</p>
+                    <p className="text-2xl font-bold text-red-600">{resetCounts.exams}</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-gray-600">Expenses</p>
+                    <p className="text-2xl font-bold text-red-600">{resetCounts.expenses}</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-gray-600">Invoices</p>
+                    <p className="text-2xl font-bold text-red-600">{resetCounts.invoices}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-green-700 mb-2">Data to be Preserved:</h3>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  <li>✓ System settings</li>
+                  <li>✓ User accounts</li>
+                  <li>✓ Branches</li>
+                  <li>✓ Packages</li>
+                  <li>✓ Belt ranks</li>
+                  <li>✓ Schemes</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Type RESET to confirm *
+                </label>
+                <input
+                  type="text"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="Type RESET in all caps"
+                  className="w-full px-4 py-2 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Enter your password to authorize *
+                </label>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Your account password"
+                  className="w-full px-4 py-2 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={performDataReset}
+                  disabled={resetting || resetConfirmText !== 'RESET' || !resetPassword}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  {resetting ? 'Resetting...' : 'Confirm Reset'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
