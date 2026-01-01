@@ -80,6 +80,17 @@ export interface Student {
   freeze_end_date: string | null;
   freeze_reason: string | null;
   is_frozen: boolean;
+  belt_key: string | null;
+  belt_order: number | null;
+  has_chronic_condition: boolean;
+  condition_details: string | null;
+  current_treatment: string | null;
+  gender: string | null;
+  email: string | null;
+  birthdate: string | null;
+  referral_source: string | null;
+  referred_by_student_id: string | null;
+  scheme_id: string | null;
   created_at: string;
 }
 
@@ -158,6 +169,7 @@ export interface Settings {
   invoice_footer_text: string | null;
   auto_send_expired_message: boolean;
   expired_message_days_interval: number;
+  enable_data_reset: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -234,4 +246,58 @@ export interface InvoiceItem {
   unit_price: number;
   total_price: number;
   created_at: string;
+}
+
+export interface BeltRank {
+  id: string;
+  belt_key: string;
+  belt_name: string;
+  belt_order: number;
+  color: string;
+  created_at: string;
+}
+
+export interface ExamParticipation {
+  id: string;
+  exam_invitation_id: string;
+  student_id: string;
+  branch_id: string;
+  attended: boolean;
+  result: 'pass' | 'fail' | null;
+  previous_belt_key: string | null;
+  previous_belt_order: number | null;
+  promoted_to_belt_key: string | null;
+  promoted_to_belt_order: number | null;
+  notes: string | null;
+  recorded_by: string;
+  recorded_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromotionLog {
+  id: string;
+  student_id: string;
+  exam_participation_id: string | null;
+  from_belt_key: string;
+  from_belt_order: number;
+  to_belt_key: string;
+  to_belt_order: number;
+  promotion_date: string;
+  promoted_by: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  expense_date: string;
+  branch_id: string;
+  category: 'rent' | 'salaries' | 'utilities' | 'equipment' | 'maintenance' | 'marketing' | 'other';
+  amount: number;
+  payment_method: 'cash' | 'card' | 'bank_transfer';
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
