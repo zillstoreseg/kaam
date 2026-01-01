@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType, Scheme } from '../lib/supabase';
-import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
+import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType, Scheme, BeltRank } from '../lib/supabase';
+import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2, Upload, Image as ImageIcon, Award, Activity } from 'lucide-react';
 import InvoiceModal from '../components/InvoiceModal';
 import SearchableSelect from '../components/SearchableSelect';
 import { nationalities } from '../data/nationalities';
@@ -10,6 +10,7 @@ import { nationalities } from '../data/nationalities';
 interface StudentWithDetails extends Student {
   branch?: Branch;
   package?: PackageType;
+  belt_rank?: BeltRank;
 }
 
 function formatDate(dateString: string): string {
@@ -28,12 +29,15 @@ export default function Students() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [schemes, setSchemes] = useState<Scheme[]>([]);
+  const [beltRanks, setBeltRanks] = useState<BeltRank[]>([]);
   const [allStudents, setAllStudents] = useState<StudentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('all');
+  const [selectedBeltFilter, setSelectedBeltFilter] = useState<string>('all');
+  const [selectedMedicalFilter, setSelectedMedicalFilter] = useState<string>('all');
   const [showFreezeModal, setShowFreezeModal] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithDetails | null>(null);
@@ -73,6 +77,11 @@ export default function Students() {
     notes: '',
     photo_url: '',
     trial_student: false,
+    belt_key: '10th_kyu_white',
+    belt_order: 1,
+    has_chronic_condition: false,
+    condition_details: '',
+    current_treatment: '',
   });
 
   useEffect(() => {
@@ -87,11 +96,12 @@ export default function Students() {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
 
-      const [studentsRes, branchesRes, packagesRes, schemesRes, allStudentsRes, settingsRes] = await Promise.all([
+      const [studentsRes, branchesRes, packagesRes, schemesRes, beltRanksRes, allStudentsRes, settingsRes] = await Promise.all([
         studentsQuery,
         supabase.from('branches').select('*').order('name'),
         supabase.from('packages').select('*').order('name'),
         supabase.from('schemes').select('*').order('name'),
+        supabase.from('belt_ranks').select('*').order('belt_order'),
         supabase.from('students').select('id, full_name').order('full_name'),
         supabase.from('settings').select('*').maybeSingle(),
       ]);
@@ -100,6 +110,7 @@ export default function Students() {
       if (branchesRes.data) setBranches(branchesRes.data as Branch[]);
       if (packagesRes.data) setPackages(packagesRes.data as PackageType[]);
       if (schemesRes.data) setSchemes(schemesRes.data as Scheme[]);
+      if (beltRanksRes.data) setBeltRanks(beltRanksRes.data as BeltRank[]);
       if (allStudentsRes.data) setAllStudents(allStudentsRes.data as any);
       if (settingsRes.data) setSettings(settingsRes.data as SettingsType);
     } catch (error) {
@@ -121,7 +132,13 @@ export default function Students() {
     const studentGender = (student as any).gender;
     const matchesGender = selectedGenderFilter === 'all' || studentGender === selectedGenderFilter;
 
-    return matchesSearch && matchesBranch && matchesYear && matchesGender;
+    const matchesBelt = selectedBeltFilter === 'all' || student.belt_key === selectedBeltFilter;
+
+    const matchesMedical = selectedMedicalFilter === 'all' ||
+      (selectedMedicalFilter === 'yes' && student.has_chronic_condition) ||
+      (selectedMedicalFilter === 'no' && !student.has_chronic_condition);
+
+    return matchesSearch && matchesBranch && matchesYear && matchesGender && matchesBelt && matchesMedical;
   });
 
   async function markAsExpired(student: StudentWithDetails) {
@@ -357,6 +374,11 @@ export default function Students() {
       notes: '',
       photo_url: '',
       trial_student: false,
+      belt_key: '10th_kyu_white',
+      belt_order: 1,
+      has_chronic_condition: false,
+      condition_details: '',
+      current_treatment: '',
     });
     setShowAddModal(true);
   }
@@ -436,6 +458,11 @@ export default function Students() {
       notes: student.notes || '',
       photo_url: student.photo_url || '',
       trial_student: student.trial_student || false,
+      belt_key: student.belt_key || '10th_kyu_white',
+      belt_order: student.belt_order || 1,
+      has_chronic_condition: student.has_chronic_condition || false,
+      condition_details: student.condition_details || '',
+      current_treatment: student.current_treatment || '',
     });
     setShowAddModal(true);
   }
@@ -564,6 +591,11 @@ export default function Students() {
       return;
     }
 
+    if (formData.has_chronic_condition && (!formData.condition_details || !formData.current_treatment)) {
+      alert('Please provide condition details and current treatment for chronic condition');
+      return;
+    }
+
     try {
       const photoUrl = await uploadPhoto();
 
@@ -586,6 +618,11 @@ export default function Students() {
         notes: formData.notes,
         photo_url: photoUrl || formData.photo_url,
         trial_student: formData.trial_student,
+        belt_key: formData.belt_key,
+        belt_order: formData.belt_order,
+        has_chronic_condition: formData.has_chronic_condition,
+        condition_details: formData.has_chronic_condition ? formData.condition_details : null,
+        current_treatment: formData.has_chronic_condition ? formData.current_treatment : null,
         is_active: true,
       };
 
@@ -671,8 +708,64 @@ export default function Students() {
         </button>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Award className="w-6 h-6 text-red-700" />
+            <h2 className="text-xl font-bold text-gray-900">Belt Distribution</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {beltRanks.map((belt) => {
+              const count = students.filter((s) => s.belt_key === belt.belt_key).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={belt.belt_key}
+                  onClick={() => setSelectedBeltFilter(belt.belt_key)}
+                  className={`p-3 border rounded-lg hover:bg-gray-50 transition text-center ${selectedBeltFilter === belt.belt_key ? 'border-red-700 bg-red-50' : ''}`}
+                >
+                  <div
+                    className="w-6 h-6 rounded-full mx-auto mb-2"
+                    style={{ backgroundColor: belt.color, border: '2px solid #ccc' }}
+                  />
+                  <p className="text-xs text-gray-600 mb-1">{belt.belt_name}</p>
+                  <p className="text-lg font-bold">{count}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-6 h-6 text-blue-600" />
+            <h2 className="text-xl font-bold text-gray-900">Medical Summary</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-gray-600 mb-1">With Chronic Condition</p>
+              <p className="text-3xl font-bold text-red-600">
+                {students.filter((s) => s.has_chronic_condition).length}
+              </p>
+              <p className="text-xs text-gray-500">
+                {students.length > 0 ? ((students.filter((s) => s.has_chronic_condition).length / students.length) * 100).toFixed(1) : 0}%
+              </p>
+            </div>
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <p className="text-sm text-gray-600 mb-1">Without Condition</p>
+              <p className="text-3xl font-bold text-green-600">
+                {students.filter((s) => !s.has_chronic_condition).length}
+              </p>
+              <p className="text-xs text-gray-500">
+                {students.length > 0 ? ((students.filter((s) => !s.has_chronic_condition).length / students.length) * 100).toFixed(1) : 0}%
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {profile?.role === 'super_admin' && (
             <div>
               <select
@@ -689,6 +782,31 @@ export default function Students() {
               </select>
             </div>
           )}
+          <div>
+            <select
+              value={selectedBeltFilter}
+              onChange={(e) => setSelectedBeltFilter(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
+            >
+              <option value="all">All Belts</option>
+              {beltRanks.map((belt) => (
+                <option key={belt.belt_key} value={belt.belt_key}>
+                  {belt.belt_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={selectedMedicalFilter}
+              onChange={(e) => setSelectedMedicalFilter(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-700"
+            >
+              <option value="all">All Medical</option>
+              <option value="yes">With Condition</option>
+              <option value="no">No Condition</option>
+            </select>
+          </div>
           <div>
             <select
               value={selectedYearFilter}
@@ -736,6 +854,7 @@ export default function Students() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Contact</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Package</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Branch</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Belt</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Days Remaining</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Actions</th>
@@ -744,7 +863,7 @@ export default function Students() {
             <tbody className="divide-y">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                     No students found
                   </td>
                 </tr>
@@ -773,6 +892,23 @@ export default function Students() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm text-gray-700">{student.branch?.name || 'N/A'}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {student.belt_key && beltRanks.find(b => b.belt_key === student.belt_key) ? (
+                            <>
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: beltRanks.find(b => b.belt_key === student.belt_key)?.color || '#ccc' }}
+                              />
+                              <span className="text-xs">
+                                {beltRanks.find(b => b.belt_key === student.belt_key)?.belt_name || 'N/A'}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-400">No Belt</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">{getStatusBadge(student)}</td>
                       <td className="px-4 py-3">
@@ -1150,6 +1286,31 @@ export default function Students() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Belt Rank *
+                  </label>
+                  <select
+                    value={formData.belt_key}
+                    onChange={(e) => {
+                      const belt = beltRanks.find(b => b.belt_key === e.target.value);
+                      setFormData({
+                        ...formData,
+                        belt_key: e.target.value,
+                        belt_order: belt?.belt_order || 1
+                      });
+                    }}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    required
+                  >
+                    {beltRanks.map((belt) => (
+                      <option key={belt.belt_key} value={belt.belt_key}>
+                        {belt.belt_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     {t('students.address')}
@@ -1397,6 +1558,66 @@ export default function Students() {
                     rows={3}
                   />
                 </div>
+              </div>
+
+              <div className="border-t pt-6 px-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-blue-600" />
+                  Medical Information
+                </h3>
+
+                <div className="mb-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.has_chronic_condition}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          has_chronic_condition: e.target.checked,
+                          condition_details: e.target.checked ? formData.condition_details : '',
+                          current_treatment: e.target.checked ? formData.current_treatment : '',
+                        });
+                      }}
+                      className="w-4 h-4 text-red-600 rounded focus:ring-red-700"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">
+                      Has Chronic Medical Condition
+                    </span>
+                  </label>
+                </div>
+
+                {formData.has_chronic_condition && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Condition Details *
+                      </label>
+                      <textarea
+                        required={formData.has_chronic_condition}
+                        value={formData.condition_details}
+                        onChange={(e) => setFormData({ ...formData, condition_details: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                        rows={3}
+                        placeholder="Describe the chronic condition..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Current Treatment / Management *
+                      </label>
+                      <textarea
+                        required={formData.has_chronic_condition}
+                        value={formData.current_treatment}
+                        onChange={(e) => setFormData({ ...formData, current_treatment: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                        rows={3}
+                        placeholder="Describe current treatment or management plan..."
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

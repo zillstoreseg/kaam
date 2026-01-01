@@ -98,6 +98,7 @@ export default function Layout() {
     { name: 'Revenue Reports', href: '/revenue-reports', icon: DollarSign, page: 'reports' as PageName },
     { name: 'Exam Eligibility', href: '/exam-eligibility', icon: GraduationCap, page: 'reports' as PageName },
     { name: 'Attendance Reports', href: '/attendance-reports', icon: BarChart3, page: 'reports' as PageName },
+    { name: 'Expenses', href: '/expenses', icon: DollarSign, page: 'reports' as PageName },
     { name: t('nav.reports'), href: '/reports', icon: FileText, page: 'reports' as PageName },
     { name: t('nav.users'), href: '/users', icon: UserCog, page: 'users' as PageName },
     { name: t('nav.settings'), href: '/settings', icon: Settings, page: 'settings' as PageName },
