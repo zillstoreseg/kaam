@@ -49,6 +49,11 @@ export default function Settings() {
     admin_email: '',
     enable_daily_reports: false,
     enable_data_reset: false,
+    inactive_threshold_days: 14,
+    enable_inactive_alerts: true,
+    whatsapp_message_inactive_en: '',
+    whatsapp_message_inactive_ar: '',
+    whatsapp_message_inactive_hi: '',
   });
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -99,6 +104,11 @@ export default function Settings() {
           admin_email: data.admin_email || '',
           enable_daily_reports: data.enable_daily_reports || false,
           enable_data_reset: data.enable_data_reset || false,
+          inactive_threshold_days: data.inactive_threshold_days || 14,
+          enable_inactive_alerts: data.enable_inactive_alerts !== undefined ? data.enable_inactive_alerts : true,
+          whatsapp_message_inactive_en: data.whatsapp_message_inactive_en || 'Hi {student_name}, we noticed you haven\'t attended class in a while. We miss you! Please let us know if you need any assistance. - {academy_name}',
+          whatsapp_message_inactive_ar: data.whatsapp_message_inactive_ar || 'مرحبا {student_name}، لاحظنا أنك لم تحضر الصف منذ فترة. نحن نفتقدك! يرجى إعلامنا إذا كنت بحاجة إلى أي مساعدة. - {academy_name}',
+          whatsapp_message_inactive_hi: data.whatsapp_message_inactive_hi || 'नमस्ते {student_name}, हमने देखा कि आप कुछ समय से कक्षा में नहीं आए हैं। हम आपको याद करते हैं! कृपया हमें बताएं यदि आपको किसी सहायता की आवश्यकता है। - {academy_name}',
         });
       }
     } catch (error) {
@@ -1022,6 +1032,115 @@ export default function Settings() {
                   Reports are sent automatically every day at 11:59 PM
                 </p>
               </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <AlertTriangle className="w-6 h-6 text-orange-600" />
+            <h2 className="text-xl font-bold text-gray-900">Inactive Player Alerts</h2>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="enable_inactive_alerts"
+                checked={formData.enable_inactive_alerts}
+                onChange={(e) =>
+                  setFormData({ ...formData, enable_inactive_alerts: e.target.checked })
+                }
+                className="w-5 h-5 text-red-700 rounded focus:ring-red-700"
+              />
+              <label htmlFor="enable_inactive_alerts" className="text-sm font-medium text-gray-700">
+                Enable Inactive Player Alerts
+              </label>
+            </div>
+
+            {formData.enable_inactive_alerts && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Inactive Threshold (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={formData.inactive_threshold_days}
+                    onChange={(e) =>
+                      setFormData({ ...formData, inactive_threshold_days: parseInt(e.target.value) || 14 })
+                    }
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Players who haven't attended in this many days will be marked as inactive
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    WhatsApp Message Template (English)
+                  </label>
+                  <textarea
+                    value={formData.whatsapp_message_inactive_en}
+                    onChange={(e) =>
+                      setFormData({ ...formData, whatsapp_message_inactive_en: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    placeholder="Hi {student_name}..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Available placeholders: {'{student_name}'}, {'{academy_name}'}, {'{days_absent}'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    WhatsApp Message Template (Arabic)
+                  </label>
+                  <textarea
+                    value={formData.whatsapp_message_inactive_ar}
+                    onChange={(e) =>
+                      setFormData({ ...formData, whatsapp_message_inactive_ar: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    placeholder="مرحبا {student_name}..."
+                    dir="rtl"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    WhatsApp Message Template (Hindi)
+                  </label>
+                  <textarea
+                    value={formData.whatsapp_message_inactive_hi}
+                    onChange={(e) =>
+                      setFormData({ ...formData, whatsapp_message_inactive_hi: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    placeholder="नमस्ते {student_name}..."
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900">
+                    <strong>How it works:</strong>
+                  </p>
+                  <ul className="text-xs text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                    <li>System checks attendance records automatically</li>
+                    <li>Players are flagged if they haven't attended in the threshold period</li>
+                    <li>Bell icon in header shows count of inactive players</li>
+                    <li>Send WhatsApp reminders with pre-filled messages</li>
+                    <li>Track contact history for each player</li>
+                  </ul>
+                </div>
+              </>
             )}
           </div>
         </div>

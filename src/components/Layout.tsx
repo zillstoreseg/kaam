@@ -23,6 +23,7 @@ import {
   DollarSign,
   GraduationCap,
   BarChart3,
+  Bell,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -30,6 +31,7 @@ export default function Layout() {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
+  const [inactiveCount, setInactiveCount] = useState(0);
   const langMenuRef = useRef<HTMLDivElement>(null);
   const { profile, signOut } = useAuth();
   const { t, language, setLanguage, isRTL } = useLanguage();
@@ -41,12 +43,71 @@ export default function Layout() {
     loadPermissions();
   }, [profile]);
 
+  useEffect(() => {
+    if (settings?.enable_inactive_alerts) {
+      loadInactiveCount();
+      const interval = setInterval(loadInactiveCount, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [settings, profile]);
+
   async function loadSettings() {
     try {
       const { data } = await supabase.from('settings').select('*').maybeSingle();
       if (data) setSettings(data as SettingsType);
     } catch (error) {
       console.error('Error loading settings:', error);
+    }
+  }
+
+  async function loadInactiveCount() {
+    if (!settings || !settings.enable_inactive_alerts) return;
+
+    try {
+      const thresholdDays = settings.inactive_threshold_days || 14;
+      const thresholdDate = new Date();
+      thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
+
+      let studentsQuery = supabase
+        .from('students')
+        .select('id, created_at')
+        .eq('is_active', true);
+
+      if (profile?.role === 'branch_manager' && profile?.branch_id) {
+        studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
+      }
+
+      const { data: students } = await studentsQuery;
+      if (!students) return;
+
+      const studentIds = students.map(s => s.id);
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('student_id, attendance_date')
+        .in('student_id', studentIds)
+        .order('attendance_date', { ascending: false });
+
+      const lastAttendanceMap: Record<string, string> = {};
+      attendanceData?.forEach((record: any) => {
+        if (!lastAttendanceMap[record.student_id]) {
+          lastAttendanceMap[record.student_id] = record.attendance_date;
+        }
+      });
+
+      let count = 0;
+      students.forEach((student: any) => {
+        const lastAttendance = lastAttendanceMap[student.id];
+        const referenceDate = lastAttendance ? new Date(lastAttendance) : new Date(student.created_at);
+        const daysAbsent = Math.floor((Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysAbsent >= thresholdDays) {
+          count++;
+        }
+      });
+
+      setInactiveCount(count);
+    } catch (error) {
+      console.error('Error loading inactive count:', error);
     }
   }
 
@@ -187,6 +248,21 @@ export default function Layout() {
             </button>
 
             <div className="flex-1" />
+
+            {settings?.enable_inactive_alerts && (
+              <button
+                onClick={() => navigate('/inactive-players')}
+                className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition mr-2"
+                title="Inactive Players"
+              >
+                <Bell className="w-6 h-6" />
+                {inactiveCount > 0 && (
+                  <span className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-600 rounded-full">
+                    {inactiveCount > 99 ? '99+' : inactiveCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             <div className="relative" ref={langMenuRef}>
               <button

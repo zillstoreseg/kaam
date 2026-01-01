@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType, AttendanceAlert, Student, BeltRank } from '../lib/supabase';
-import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp, X, AlertTriangle, Award, Activity } from 'lucide-react';
+import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp, X, AlertTriangle, Award, Activity, UserX } from 'lucide-react';
 
 interface Stats {
   totalStudents: number;
@@ -211,6 +211,7 @@ export default function Dashboard() {
   const [beltDistribution, setBeltDistribution] = useState<Record<string, number>>({});
   const [medicalStats, setMedicalStats] = useState({ withCondition: 0, withoutCondition: 0 });
   const [monthlyExpenses, setMonthlyExpenses] = useState({ total: 0, count: 0 });
+  const [inactivePlayersCount, setInactivePlayersCount] = useState(0);
 
   useEffect(() => {
     loadStats();
@@ -220,6 +221,7 @@ export default function Dashboard() {
     loadBeltDistribution();
     loadMedicalStats();
     loadMonthlyExpenses();
+    loadInactivePlayersCount();
   }, [profile]);
 
   async function loadStats() {
@@ -416,6 +418,56 @@ export default function Dashboard() {
     }
   }
 
+  async function loadInactivePlayersCount() {
+    try {
+      const { data: settingsData } = await supabase.from('settings').select('*').maybeSingle();
+      if (!settingsData || !settingsData.enable_inactive_alerts) return;
+
+      const thresholdDays = settingsData.inactive_threshold_days || 14;
+
+      let studentsQuery = supabase
+        .from('students')
+        .select('id, created_at')
+        .eq('is_active', true);
+
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
+        studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
+      }
+
+      const { data: students } = await studentsQuery;
+      if (!students) return;
+
+      const studentIds = students.map(s => s.id);
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('student_id, attendance_date')
+        .in('student_id', studentIds)
+        .order('attendance_date', { ascending: false });
+
+      const lastAttendanceMap: Record<string, string> = {};
+      attendanceData?.forEach((record: any) => {
+        if (!lastAttendanceMap[record.student_id]) {
+          lastAttendanceMap[record.student_id] = record.attendance_date;
+        }
+      });
+
+      let count = 0;
+      students.forEach((student: any) => {
+        const lastAttendance = lastAttendanceMap[student.id];
+        const referenceDate = lastAttendance ? new Date(lastAttendance) : new Date(student.created_at);
+        const daysAbsent = Math.floor((Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysAbsent >= thresholdDays) {
+          count++;
+        }
+      });
+
+      setInactivePlayersCount(count);
+    } catch (error) {
+      console.error('Error loading inactive players count:', error);
+    }
+  }
+
   async function loadAlerts() {
     try {
       const { data, error } = await supabase
@@ -608,6 +660,22 @@ export default function Dashboard() {
             <UserCheck className="w-12 h-12 text-pink-600" />
           </div>
         </div>
+
+        {settings?.enable_inactive_alerts && (
+          <div
+            className="bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
+            onClick={() => navigate('/inactive-players')}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Inactive Players</p>
+                <p className="text-3xl font-bold text-orange-600 mt-2">{inactivePlayersCount}</p>
+                <p className="text-xs text-gray-500 mt-1">Click to view</p>
+              </div>
+              <UserX className="w-12 h-12 text-orange-600" />
+            </div>
+          </div>
+        )}
 
         {profile?.role === 'super_admin' && (
           <div className="bg-white p-6 rounded-lg shadow-md">

@@ -21,6 +21,7 @@ import RevenueReports from './pages/RevenueReports';
 import ExamEligibility from './pages/ExamEligibility';
 import AttendanceReports from './pages/AttendanceReports';
 import Expenses from './pages/Expenses';
+import InactivePlayers from './pages/InactivePlayers';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -95,6 +96,7 @@ function App() {
               <Route path="exam-eligibility" element={<ExamEligibility />} />
               <Route path="attendance-reports" element={<AttendanceReports />} />
               <Route path="expenses" element={<Expenses />} />
+              <Route path="inactive-players" element={<InactivePlayers />} />
               <Route path="users" element={<Users />} />
               <Route path="settings" element={<Settings />} />
             </Route>
