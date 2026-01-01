@@ -54,6 +54,7 @@ export default function Settings() {
     whatsapp_message_inactive_en: '',
     whatsapp_message_inactive_ar: '',
     whatsapp_message_inactive_hi: '',
+    whatsapp_contact_cooldown_days: 3,
   });
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -109,6 +110,7 @@ export default function Settings() {
           whatsapp_message_inactive_en: data.whatsapp_message_inactive_en || 'Hi {student_name}, we noticed you haven\'t attended class in a while. We miss you! Please let us know if you need any assistance. - {academy_name}',
           whatsapp_message_inactive_ar: data.whatsapp_message_inactive_ar || 'مرحبا {student_name}، لاحظنا أنك لم تحضر الصف منذ فترة. نحن نفتقدك! يرجى إعلامنا إذا كنت بحاجة إلى أي مساعدة. - {academy_name}',
           whatsapp_message_inactive_hi: data.whatsapp_message_inactive_hi || 'नमस्ते {student_name}, हमने देखा कि आप कुछ समय से कक्षा में नहीं आए हैं। हम आपको याद करते हैं! कृपया हमें बताएं यदि आपको किसी सहायता की आवश्यकता है। - {academy_name}',
+          whatsapp_contact_cooldown_days: data.whatsapp_contact_cooldown_days || 3,
         });
       }
     } catch (error) {
@@ -1060,23 +1062,44 @@ export default function Settings() {
 
             {formData.enable_inactive_alerts && (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Inactive Threshold (Days)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={formData.inactive_threshold_days}
-                    onChange={(e) =>
-                      setFormData({ ...formData, inactive_threshold_days: parseInt(e.target.value) || 14 })
-                    }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Players who haven't attended in this many days will be marked as inactive
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Inactive Threshold (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={formData.inactive_threshold_days}
+                      onChange={(e) =>
+                        setFormData({ ...formData, inactive_threshold_days: parseInt(e.target.value) || 14 })
+                      }
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Players who haven't attended in this many days will be marked as inactive
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contact Cooldown (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="30"
+                      value={formData.whatsapp_contact_cooldown_days}
+                      onChange={(e) =>
+                        setFormData({ ...formData, whatsapp_contact_cooldown_days: parseInt(e.target.value) || 3 })
+                      }
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-700"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Minimum days between WhatsApp reminders to the same player
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -1137,7 +1160,9 @@ export default function Settings() {
                     <li>Players are flagged if they haven't attended in the threshold period</li>
                     <li>Bell icon in header shows count of inactive players</li>
                     <li>Send WhatsApp reminders with pre-filled messages</li>
-                    <li>Track contact history for each player</li>
+                    <li>Confirm message delivery for accurate tracking</li>
+                    <li>Cooldown prevents contacting same player too frequently</li>
+                    <li>Track full contact history for each player</li>
                   </ul>
                 </div>
               </>
