@@ -11,7 +11,6 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, role: string, branchId?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
-  isPlatformOwner: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -171,10 +170,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function isPlatformOwner() {
-    return profile?.role === 'platform_owner';
-  }
-
   return (
     <AuthContext.Provider
       value={{
@@ -185,7 +180,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         resetPassword,
-        isPlatformOwner,
       }}
     >
       {children}

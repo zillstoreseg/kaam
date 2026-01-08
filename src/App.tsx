@@ -2,13 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Layout from './components/Layout';
-import SubscriptionGate from './components/SubscriptionGate';
-import Bootstrap from './pages/Bootstrap';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
-import TenantList from './pages/admin/TenantList';
-import TenantCreate from './pages/admin/TenantCreate';
 import Students from './pages/Students';
 import Attendance from './pages/Attendance';
 import Packages from './pages/Packages';
@@ -45,7 +41,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, isPlatformOwner } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -56,7 +52,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to={isPlatformOwner() ? '/admin/tenants' : '/'} />;
+    return <Navigate to="/" />;
   }
 
   return <>{children}</>;
@@ -93,8 +89,6 @@ function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="admin/tenants" element={<TenantList />} />
-              <Route path="admin/tenants/new" element={<TenantCreate />} />
               <Route path="students" element={<Students />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="packages" element={<Packages />} />

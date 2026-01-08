@@ -57,9 +57,6 @@ export default function Layout() {
   }, [settings, profile]);
 
   async function loadSettings() {
-    // Platform owners don't have tenant-specific settings
-    if (profile?.role === 'platform_owner') return;
-
     try {
       const { data } = await supabase.from('settings').select('*').maybeSingle();
       if (data) setSettings(data as SettingsType);
@@ -136,7 +133,7 @@ export default function Layout() {
   }
 
   function canViewPage(page: PageName): boolean {
-    if (profile?.role === 'super_admin' || profile?.role === 'platform_owner') return true;
+    if (profile?.role === 'super_admin') return true;
     const permission = permissions.find(p => p.page === page);
     return permission?.can_view || false;
   }
@@ -177,35 +174,20 @@ export default function Layout() {
     { name: 'Security Alerts', href: '/security-alerts', icon: AlertTriangle, page: 'reports' as PageName },
   ];
 
-  const platformOwnerNavigation = [
-    { name: 'Tenant Management', href: '/admin/tenants', icon: Building2, page: 'settings' as PageName },
-    { name: 'Platform Audit', href: '/activity-log', icon: Shield, page: 'settings' as PageName },
-  ];
-
   const adminNavigation = [
     { name: t('nav.users'), href: '/users', icon: UserCog, page: 'users' as PageName },
     { name: t('nav.settings'), href: '/settings', icon: Settings, page: 'settings' as PageName },
   ];
 
-  const isPlatformOwner = profile?.role === 'platform_owner';
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'branch_manager';
 
-  const navigation = isPlatformOwner
-    ? [...platformOwnerNavigation]
-    : [
-        ...baseNavigation,
-        ...(isAdmin ? securityNavigation : []),
-        ...adminNavigation,
-      ];
+  const navigation = [
+    ...baseNavigation,
+    ...(isAdmin ? securityNavigation : []),
+    ...adminNavigation,
+  ];
 
   const filteredNav = navigation.filter((item) => canViewPage(item.page));
-
-  console.log('=== Layout Debug ===');
-  console.log('Profile:', profile);
-  console.log('isPlatformOwner:', isPlatformOwner);
-  console.log('navigation:', navigation);
-  console.log('filteredNav:', filteredNav);
-  console.log('==================');
 
   const handleSignOut = async () => {
     await signOut();
@@ -226,31 +208,17 @@ export default function Layout() {
       <div className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} z-50 lg:z-auto w-64 h-full bg-white shadow-lg transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : isRTL ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col h-full">
           <div className="p-6 border-b">
-            {profile?.role === 'platform_owner' ? (
-              <>
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg mb-3">
-                  <Shield className="w-7 h-7 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-                  Platform Admin
-                </h1>
-                <p className="text-sm text-gray-600">Multi-Tenant Management Portal</p>
-              </>
-            ) : (
-              <>
-                {settings?.logo_url && (
-                  <img src={settings.logo_url} alt="Logo" className="h-12 mb-3" />
-                )}
-                <h1 className="text-2xl font-bold text-red-700">
-                  {settings?.academy_name || t('app.name')}
-                </h1>
-                {settings?.company_slogan && (
-                  <p className="text-sm text-gray-600 italic">{settings.company_slogan}</p>
-                )}
-                {!settings?.company_slogan && (
-                  <p className="text-sm text-gray-600">{t('app.subtitle')}</p>
-                )}
-              </>
+            {settings?.logo_url && (
+              <img src={settings.logo_url} alt="Logo" className="h-12 mb-3" />
+            )}
+            <h1 className="text-2xl font-bold text-red-700">
+              {settings?.academy_name || t('app.name')}
+            </h1>
+            {settings?.company_slogan && (
+              <p className="text-sm text-gray-600 italic">{settings.company_slogan}</p>
+            )}
+            {!settings?.company_slogan && (
+              <p className="text-sm text-gray-600">{t('app.subtitle')}</p>
             )}
           </div>
 
@@ -276,15 +244,15 @@ export default function Layout() {
           </nav>
 
           <div className="p-4 border-t space-y-2">
-            <div className={`px-4 py-2 ${profile?.role === 'platform_owner' ? 'bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200' : 'bg-gray-100'} rounded-lg`}>
+            <div className="px-4 py-2 bg-gray-100 rounded-lg">
               <p className="text-sm font-medium text-gray-900">{profile?.full_name}</p>
-              <p className={`text-xs ${profile?.role === 'platform_owner' ? 'text-blue-700 font-semibold' : 'text-gray-600'}`}>
-                {profile?.role === 'platform_owner' ? 'Platform Owner' : profile?.role && t(`role.${profile.role}`)}
+              <p className="text-xs text-gray-600">
+                {profile?.role && t(`role.${profile.role}`)}
               </p>
             </div>
             <button
               onClick={handleSignOut}
-              className={`flex items-center gap-3 w-full px-4 py-3 ${profile?.role === 'platform_owner' ? 'text-blue-700 hover:bg-blue-50' : 'text-red-700 hover:bg-red-50'} rounded-lg transition`}
+              className="flex items-center gap-3 w-full px-4 py-3 text-red-700 hover:bg-red-50 rounded-lg transition"
             >
               <LogOut className="w-5 h-5" />
               <span className="font-medium">{t('nav.logout')}</span>

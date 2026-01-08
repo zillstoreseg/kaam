@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType, AttendanceAlert, Student, BeltRank } from '../lib/supabase';
 import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp, X, AlertTriangle, Award, Activity, UserX } from 'lucide-react';
-import SubscriptionBadge from '../components/SubscriptionBadge';
 
 interface Stats {
   totalStudents: number;
@@ -559,9 +558,6 @@ export default function Dashboard() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-900">{t('nav.dashboard')}</h1>
           <p className="text-gray-600 mt-1">{t('dashboard.welcome')}, {profile?.full_name}</p>
-        </div>
-        <div className="w-80">
-          <SubscriptionBadge />
         </div>
       </div>
 
