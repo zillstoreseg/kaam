@@ -5,7 +5,6 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType, AttendanceAlert, Student, BeltRank } from '../lib/supabase';
 import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp, X, AlertTriangle, Award, Activity, UserX } from 'lucide-react';
 import SubscriptionBadge from '../components/SubscriptionBadge';
-import PlatformDashboard from './PlatformDashboard';
 
 interface Stats {
   totalStudents: number;
@@ -191,10 +190,6 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
-
-  if (profile?.role === 'platform_owner') {
-    return <PlatformDashboard />;
-  }
   const [stats, setStats] = useState<Stats>({
     totalStudents: 0,
     totalBranches: 0,
