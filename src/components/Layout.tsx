@@ -200,6 +200,16 @@ export default function Layout() {
 
   const filteredNav = navigation.filter((item) => canViewPage(item.page));
 
+  // Debug logging
+  console.log('Layout Debug:', {
+    role: profile?.role,
+    isPlatformOwner,
+    navigationLength: navigation.length,
+    filteredNavLength: filteredNav.length,
+    navigation: navigation.map(n => ({ name: n.name, page: n.page })),
+    filteredNav: filteredNav.map(n => ({ name: n.name, page: n.page }))
+  });
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
