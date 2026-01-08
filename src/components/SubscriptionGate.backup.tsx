@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Mail, Phone, MessageCircle } from 'lucide-react';
+import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useTenant } from '../contexts/TenantContext';
-import { supabase } from '../lib/supabase';
 
 interface SubscriptionGateProps {
   children: React.ReactNode;
@@ -9,69 +8,6 @@ interface SubscriptionGateProps {
 
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const { currentTenant, subscription, isPlatformOwner, isLoading } = useTenant();
-  const [supportInfo, setSupportInfo] = useState({
-    email: 'support@example.com',
-    phone: '',
-    whatsapp: '',
-  });
-
-  useEffect(() => {
-    loadSupportInfo();
-  }, []);
-
-  const loadSupportInfo = async () => {
-    try {
-      const { data } = await supabase
-        .from('settings')
-        .select('support_email, support_phone, support_whatsapp')
-        .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        setSupportInfo({
-          email: data.support_email || 'support@example.com',
-          phone: data.support_phone || '',
-          whatsapp: data.support_whatsapp || '',
-        });
-      }
-    } catch (err) {
-      console.error('Error loading support info:', err);
-    }
-  };
-
-  const SupportContactButton = () => (
-    <div className="mt-6 space-y-2">
-      {supportInfo.whatsapp && (
-        <a
-          href={`https://wa.me/${supportInfo.whatsapp.replace(/[^0-9]/g, '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-        >
-          <MessageCircle className="h-5 w-5" />
-          <span>Contact via WhatsApp</span>
-        </a>
-      )}
-      {supportInfo.email && (
-        <a
-          href={`mailto:${supportInfo.email}`}
-          className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <Mail className="h-5 w-5" />
-          <span>Email Support</span>
-        </a>
-      )}
-      {supportInfo.phone && (
-        <a
-          href={`tel:${supportInfo.phone}`}
-          className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-        >
-          <Phone className="h-5 w-5" />
-          <span>Call {supportInfo.phone}</span>
-        </a>
-      )}
-    </div>
-  );
 
   if (isLoading) {
     return (
@@ -84,10 +20,12 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
     );
   }
 
+  // Platform owners bypass subscription check
   if (isPlatformOwner) {
     return <>{children}</>;
   }
 
+  // Check tenant status
   if (!currentTenant) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -100,7 +38,6 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
           <p className="text-sm text-gray-500">
             If you believe this is an error, please contact support.
           </p>
-          <SupportContactButton />
         </div>
       </div>
     );
@@ -123,12 +60,15 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
               <span className="font-semibold">Status:</span> Suspended
             </p>
           </div>
-          <SupportContactButton />
+          <p className="text-sm text-gray-500 mt-6">
+            Need help? Contact support at support@example.com
+          </p>
         </div>
       </div>
     );
   }
 
+  // Check subscription status
   if (!subscription) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -143,12 +83,15 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
               <span className="font-semibold">Academy:</span> {currentTenant.name}
             </p>
           </div>
-          <SupportContactButton />
+          <p className="text-sm text-gray-500 mt-6">
+            Need help? Contact support at support@example.com
+          </p>
         </div>
       </div>
     );
   }
 
+  // Check if subscription is expired (accounting for grace period)
   const renewalDate = new Date(subscription.renews_at);
   const gracePeriodEnd = new Date(renewalDate);
   gracePeriodEnd.setDate(gracePeriodEnd.getDate() + subscription.grace_days);
@@ -174,20 +117,20 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
               <span className="font-semibold">Plan:</span> {subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)}
             </p>
             <p className="text-sm text-gray-700">
-              <span className="font-semibold">Renewal Date:</span> {renewalDate.toLocaleDateString()}
-            </p>
-            <p className="text-sm text-gray-700">
-              <span className="font-semibold">Grace Period End:</span> {gracePeriodEnd.toLocaleDateString()}
+              <span className="font-semibold">Expired:</span> {renewalDate.toLocaleDateString()}
             </p>
             <p className="text-sm text-red-700 font-semibold">
-              Days Overdue: {daysOverdue}
+              Days overdue: {daysOverdue}
             </p>
           </div>
-          <SupportContactButton />
+          <p className="text-sm text-gray-500 mt-6">
+            Contact support to renew: support@example.com
+          </p>
         </div>
       </div>
     );
   }
 
+  // All checks passed - render children
   return <>{children}</>;
 }

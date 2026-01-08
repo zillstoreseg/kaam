@@ -31,6 +31,10 @@ import SecurityAlerts from './pages/SecurityAlerts';
 import { AdminTenants } from './pages/admin/AdminTenants';
 import { CreateTenant } from './pages/admin/CreateTenant';
 import { TenantDetails } from './pages/admin/TenantDetails';
+import { DomainSetup } from './pages/admin/DomainSetup';
+import { SalesKit } from './pages/admin/SalesKit';
+import { QATesting } from './pages/admin/QATesting';
+import { Bootstrap } from './pages/Bootstrap';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -124,6 +128,9 @@ function AdminRoutes() {
       <Route path="/admin/tenants" element={<PlatformOwnerRoute><AdminTenants /></PlatformOwnerRoute>} />
       <Route path="/admin/tenants/new" element={<PlatformOwnerRoute><CreateTenant /></PlatformOwnerRoute>} />
       <Route path="/admin/tenants/:tenantId" element={<PlatformOwnerRoute><TenantDetails /></PlatformOwnerRoute>} />
+      <Route path="/admin/domain-setup" element={<PlatformOwnerRoute><DomainSetup /></PlatformOwnerRoute>} />
+      <Route path="/admin/sales-kit" element={<PlatformOwnerRoute><SalesKit /></PlatformOwnerRoute>} />
+      <Route path="/admin/qa-testing" element={<PlatformOwnerRoute><QATesting /></PlatformOwnerRoute>} />
       <Route path="/admin" element={<Navigate to="/admin/tenants" />} />
       <Route path="*" element={<PlatformOwnerRoute><AdminTenants /></PlatformOwnerRoute>} />
     </Routes>
@@ -144,6 +151,7 @@ function AppRoutes() {
   // Otherwise show tenant portal (with auth routes)
   return (
     <Routes>
+      <Route path="/bootstrap" element={<Bootstrap />} />
       <Route
         path="/login"
         element={

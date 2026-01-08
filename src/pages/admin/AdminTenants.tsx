@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Search, ExternalLink, Calendar, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Building2, Plus, Search, ExternalLink, AlertTriangle, CheckCircle, Clock, Filter, X, Pause, Play, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 
@@ -23,12 +23,86 @@ interface TenantWithSubscription extends Tenant {
   } | null;
 }
 
+interface ConfirmDialogProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText: string;
+  confirmClass: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isProcessing: boolean;
+}
+
+function ConfirmDialog({ isOpen, title, message, confirmText, confirmClass, onConfirm, onCancel, isProcessing }: ConfirmDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            disabled={isProcessing}
+            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isProcessing}
+            className={`px-4 py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${confirmClass}`}
+          >
+            {isProcessing && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminTenants() {
   const { startImpersonation } = useTenant();
   const [tenants, setTenants] = useState<TenantWithSubscription[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isImpersonating, setIsImpersonating] = useState<string | null>(null);
+  const [brandDomain, setBrandDomain] = useState('example.com');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    type: 'suspend' | 'activate' | 'extend' | null;
+    tenantId: string | null;
+    tenantName: string | null;
+    days?: number;
+  }>({ isOpen: false, type: null, tenantId: null, tenantName: null });
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    loadBrandDomain();
+    loadTenants();
+  }, []);
+
+  const loadBrandDomain = async () => {
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('brand_domain')
+        .limit(1)
+        .maybeSingle();
+
+      if (data?.brand_domain) {
+        setBrandDomain(data.brand_domain);
+      }
+    } catch (err) {
+      console.error('Error loading brand domain:', err);
+    }
+  };
 
   const loadTenants = async () => {
     try {
@@ -41,7 +115,6 @@ export function AdminTenants() {
 
       if (tenantsError) throw tenantsError;
 
-      // Load subscriptions for each tenant
       const tenantsWithSubs = await Promise.all(
         (tenantsData || []).map(async (tenant) => {
           const { data: subData } = await supabase
@@ -71,12 +144,59 @@ export function AdminTenants() {
     setIsImpersonating(tenantId);
     try {
       await startImpersonation(tenantId);
-      // Redirect to tenant dashboard
       window.location.href = '/';
     } catch (err) {
       console.error('Failed to impersonate:', err);
       alert('Failed to start impersonation. Please try again.');
       setIsImpersonating(null);
+    }
+  };
+
+  const handleQuickAction = (type: 'suspend' | 'activate' | 'extend', tenant: TenantWithSubscription, days?: number) => {
+    setConfirmDialog({
+      isOpen: true,
+      type,
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      days,
+    });
+  };
+
+  const executeAction = async () => {
+    if (!confirmDialog.tenantId) return;
+
+    setIsProcessing(true);
+    try {
+      if (confirmDialog.type === 'suspend') {
+        await supabase
+          .from('tenants')
+          .update({ status: 'suspended' })
+          .eq('id', confirmDialog.tenantId);
+      } else if (confirmDialog.type === 'activate') {
+        await supabase
+          .from('tenants')
+          .update({ status: 'active' })
+          .eq('id', confirmDialog.tenantId);
+      } else if (confirmDialog.type === 'extend' && confirmDialog.days) {
+        const tenant = tenants.find(t => t.id === confirmDialog.tenantId);
+        if (tenant?.subscription) {
+          const currentRenewal = new Date(tenant.subscription.renews_at);
+          currentRenewal.setDate(currentRenewal.getDate() + confirmDialog.days);
+
+          await supabase
+            .from('subscriptions')
+            .update({ renews_at: currentRenewal.toISOString().split('T')[0] })
+            .eq('id', tenant.subscription.id);
+        }
+      }
+
+      await loadTenants();
+      setConfirmDialog({ isOpen: false, type: null, tenantId: null, tenantName: null });
+    } catch (err: any) {
+      console.error('Action failed:', err);
+      alert(`Failed: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -99,15 +219,49 @@ export function AdminTenants() {
     return { days: diffDays, inGrace: false, expired: false };
   };
 
-  useEffect(() => {
-    loadTenants();
-  }, []);
-
-  const filteredTenants = tenants.filter(
-    (tenant) =>
+  const filteredTenants = tenants.filter((tenant) => {
+    const matchesSearch =
       tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.subdomain.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      tenant.subdomain.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || tenant.status === statusFilter;
+    const matchesPlan = planFilter === 'all' || tenant.subscription?.plan === planFilter;
+
+    return matchesSearch && matchesStatus && matchesPlan;
+  });
+
+  const getConfirmDialogProps = () => {
+    switch (confirmDialog.type) {
+      case 'suspend':
+        return {
+          title: 'Suspend Tenant',
+          message: `Are you sure you want to suspend "${confirmDialog.tenantName}"? Users will be blocked from accessing the system.`,
+          confirmText: 'Suspend',
+          confirmClass: 'bg-orange-600 text-white hover:bg-orange-700',
+        };
+      case 'activate':
+        return {
+          title: 'Activate Tenant',
+          message: `Activate "${confirmDialog.tenantName}"? Users will regain access to the system.`,
+          confirmText: 'Activate',
+          confirmClass: 'bg-green-600 text-white hover:bg-green-700',
+        };
+      case 'extend':
+        return {
+          title: 'Extend Subscription',
+          message: `Extend "${confirmDialog.tenantName}" subscription by ${confirmDialog.days} days?`,
+          confirmText: 'Extend',
+          confirmClass: 'bg-blue-600 text-white hover:bg-blue-700',
+        };
+      default:
+        return {
+          title: '',
+          message: '',
+          confirmText: '',
+          confirmClass: '',
+        };
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -115,7 +269,10 @@ export function AdminTenants() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Building2 className="h-8 w-8 text-red-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Tenant Management</h1>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Tenant Management</h1>
+              <p className="text-sm text-gray-500 mt-1">{filteredTenants.length} of {tenants.length} tenants</p>
+            </div>
           </div>
           <Link
             to="/admin/tenants/new"
@@ -126,16 +283,72 @@ export function AdminTenants() {
           </Link>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search tenants..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          />
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name or subdomain..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition ${
+              showFilters ? 'bg-red-50 border-red-300 text-red-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Filter className="h-5 w-5" />
+            Filters
+          </button>
         </div>
+
+        {showFilters && (
+          <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="trial">Trial</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plan</label>
+                <select
+                  value={planFilter}
+                  onChange={(e) => setPlanFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="all">All Plans</option>
+                  <option value="single">Single</option>
+                  <option value="multi">Multi</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setPlanFilter('all');
+                    setSearchTerm('');
+                  }}
+                  className="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -160,8 +373,11 @@ export function AdminTenants() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Renewal
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Quick Actions
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  More
                 </th>
               </tr>
             </thead>
@@ -176,7 +392,7 @@ export function AdminTenants() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{tenant.name}</div>
-                        <div className="text-sm text-gray-500">{tenant.subdomain}.example.com</div>
+                        <div className="text-sm text-gray-500">{tenant.subdomain}.{brandDomain}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -198,9 +414,6 @@ export function AdminTenants() {
                           <span className="text-sm text-gray-900 capitalize">
                             {tenant.subscription.plan}
                           </span>
-                          {tenant.subscription.status === 'expired' && (
-                            <AlertTriangle className="h-4 w-4 text-red-600" />
-                          )}
                         </div>
                       ) : (
                         <span className="text-sm text-gray-500">No subscription</span>
@@ -213,26 +426,65 @@ export function AdminTenants() {
                             <>
                               <AlertTriangle className="h-4 w-4 text-red-600" />
                               <span className="text-sm text-red-600 font-semibold">
-                                {renewal.days} days overdue
+                                {renewal.days}d overdue
                               </span>
                             </>
                           ) : renewal.inGrace ? (
                             <>
                               <Clock className="h-4 w-4 text-orange-600" />
                               <span className="text-sm text-orange-600">
-                                {renewal.days} grace days left
+                                {renewal.days}d grace
                               </span>
                             </>
                           ) : (
                             <>
                               <CheckCircle className="h-4 w-4 text-green-600" />
-                              <span className="text-sm text-gray-700">{renewal.days} days</span>
+                              <span className="text-sm text-gray-700">{renewal.days}d</span>
                             </>
                           )}
                         </div>
                       ) : (
                         <span className="text-sm text-gray-500">-</span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        {tenant.status === 'active' ? (
+                          <button
+                            onClick={() => handleQuickAction('suspend', tenant)}
+                            className="p-1 text-orange-600 hover:bg-orange-50 rounded transition"
+                            title="Suspend"
+                          >
+                            <Pause className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleQuickAction('activate', tenant)}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded transition"
+                            title="Activate"
+                          >
+                            <Play className="h-4 w-4" />
+                          </button>
+                        )}
+                        {tenant.subscription && (
+                          <>
+                            <button
+                              onClick={() => handleQuickAction('extend', tenant, 30)}
+                              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition"
+                              title="Extend 30 days"
+                            >
+                              +30d
+                            </button>
+                            <button
+                              onClick={() => handleQuickAction('extend', tenant, 90)}
+                              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition"
+                              title="Extend 90 days"
+                            >
+                              +90d
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <Link
@@ -268,11 +520,23 @@ export function AdminTenants() {
           {filteredTenants.length === 0 && (
             <div className="text-center py-12">
               <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No tenants found</p>
+              <p className="text-gray-600">
+                {searchTerm || statusFilter !== 'all' || planFilter !== 'all'
+                  ? 'No tenants match your filters'
+                  : 'No tenants found'}
+              </p>
             </div>
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        {...getConfirmDialogProps()}
+        onConfirm={executeAction}
+        onCancel={() => setConfirmDialog({ isOpen: false, type: null, tenantId: null, tenantName: null })}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }
