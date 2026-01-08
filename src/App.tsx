@@ -2,9 +2,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Layout from './components/Layout';
+import SubscriptionGate from './components/SubscriptionGate';
+import Bootstrap from './pages/Bootstrap';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
+import TenantList from './pages/admin/TenantList';
+import TenantCreate from './pages/admin/TenantCreate';
 import Students from './pages/Students';
 import Attendance from './pages/Attendance';
 import Packages from './pages/Packages';
@@ -76,6 +80,8 @@ function App() {
                 </PublicRoute>
               }
             />
+            <Route path="/admin/tenants" element={<PrivateRoute><TenantList /></PrivateRoute>} />
+            <Route path="/admin/tenants/new" element={<PrivateRoute><TenantCreate /></PrivateRoute>} />
             <Route
               path="/"
               element={

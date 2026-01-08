@@ -9,14 +9,48 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export type UserRole = 'super_admin' | 'branch_manager' | 'coach' | 'accountant' | 'stock_manager';
+export type UserRole = 'platform_owner' | 'tenant_admin' | 'super_admin' | 'branch_manager' | 'coach' | 'accountant' | 'stock_manager';
 export type PageName = 'dashboard' | 'students' | 'attendance' | 'packages' | 'schemes' | 'branches' | 'stock' | 'sales' | 'invoices' | 'reports' | 'users' | 'settings';
+export type TenantStatus = 'active' | 'suspended' | 'trial';
+export type SubscriptionPlan = 'single' | 'multi' | 'enterprise';
+export type SubscriptionStatus = 'active' | 'expired';
+export type ModuleKey = 'students' | 'attendance' | 'exams' | 'inactive_alerts' | 'whatsapp_templates' | 'settings' | 'multi_branch' | 'expenses' | 'expense_analytics' | 'email_digests' | 'security_suite';
+
+export interface Tenant {
+  id: string;
+  name: string;
+  subdomain: string;
+  status: TenantStatus;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  tenant_id: string;
+  plan: SubscriptionPlan;
+  starts_at: string;
+  renews_at: string;
+  status: SubscriptionStatus;
+  grace_days: number;
+  module_overrides: Record<string, boolean>;
+  created_at: string;
+}
+
+export interface ImpersonationSession {
+  id: string;
+  admin_user_id: string;
+  tenant_id: string;
+  created_at: string;
+  expires_at: string;
+  revoked: boolean;
+}
 
 export interface Profile {
   id: string;
   full_name: string;
   role: UserRole;
   branch_id: string | null;
+  tenant_id: string | null;
   created_at: string;
 }
 
@@ -300,4 +334,64 @@ export interface Expense {
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+// SaaS Plan Features
+export const PLAN_FEATURES: Record<SubscriptionPlan, ModuleKey[]> = {
+  single: ['students', 'attendance', 'exams', 'inactive_alerts', 'whatsapp_templates', 'settings'],
+  multi: ['students', 'attendance', 'exams', 'inactive_alerts', 'whatsapp_templates', 'settings', 'multi_branch', 'expenses', 'expense_analytics', 'email_digests'],
+  enterprise: ['students', 'attendance', 'exams', 'inactive_alerts', 'whatsapp_templates', 'settings', 'multi_branch', 'expenses', 'expense_analytics', 'email_digests', 'security_suite']
+};
+
+// Check if feature is enabled for current subscription
+export function isFeatureEnabled(
+  subscription: Subscription | null,
+  featureKey: ModuleKey
+): boolean {
+  if (!subscription) return false;
+
+  // Check subscription status
+  const renewDate = new Date(subscription.renews_at);
+  const graceEndDate = new Date(renewDate);
+  graceEndDate.setDate(graceEndDate.getDate() + subscription.grace_days);
+
+  if (subscription.status !== 'active' || graceEndDate < new Date()) {
+    return false;
+  }
+
+  // Get plan features
+  const planFeatures = PLAN_FEATURES[subscription.plan] || [];
+
+  // Check if feature is in plan
+  const inPlan = planFeatures.includes(featureKey);
+
+  // Check for overrides
+  if (subscription.module_overrides[featureKey] !== undefined) {
+    return subscription.module_overrides[featureKey];
+  }
+
+  return inPlan;
+}
+
+// Get days until renewal
+export function getDaysUntilRenewal(subscription: Subscription | null): number {
+  if (!subscription) return 0;
+
+  const renewDate = new Date(subscription.renews_at);
+  const today = new Date();
+  const diffTime = renewDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  return diffDays;
+}
+
+// Check if subscription is expired
+export function isSubscriptionExpired(subscription: Subscription | null): boolean {
+  if (!subscription) return true;
+
+  const renewDate = new Date(subscription.renews_at);
+  const graceEndDate = new Date(renewDate);
+  graceEndDate.setDate(graceEndDate.getDate() + subscription.grace_days);
+
+  return subscription.status !== 'active' || graceEndDate < new Date();
 }

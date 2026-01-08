@@ -3,6 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType, RolePermission, PageName } from '../lib/supabase';
+import ImpersonationBanner from './ImpersonationBanner';
 import {
   LayoutDashboard,
   Users,
@@ -258,6 +259,7 @@ export default function Layout() {
       </div>
 
       <div className={isRTL ? 'lg:mr-64' : 'lg:ml-64'}>
+        <ImpersonationBanner />
         <header className="bg-white shadow-sm sticky top-0 z-40">
           <div className="flex items-center justify-between px-4 py-4">
             <button
