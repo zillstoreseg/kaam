@@ -84,8 +84,6 @@ function App() {
                 </PublicRoute>
               }
             />
-            <Route path="/admin/tenants" element={<PrivateRoute><TenantList /></PrivateRoute>} />
-            <Route path="/admin/tenants/new" element={<PrivateRoute><TenantCreate /></PrivateRoute>} />
             <Route
               path="/"
               element={
@@ -95,6 +93,8 @@ function App() {
               }
             >
               <Route index element={<Dashboard />} />
+              <Route path="admin/tenants" element={<TenantList />} />
+              <Route path="admin/tenants/new" element={<TenantCreate />} />
               <Route path="students" element={<Students />} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="packages" element={<Packages />} />
