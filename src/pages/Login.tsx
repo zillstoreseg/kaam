@@ -39,7 +39,23 @@ export default function Login() {
       setError(signInError.message);
       setLoading(false);
     } else {
-      navigate('/');
+      // Check if user is platform owner and redirect accordingly
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.role === 'platform_owner') {
+          navigate('/admin/tenants');
+        } else {
+          navigate('/');
+        }
+      } else {
+        navigate('/');
+      }
     }
   };
 

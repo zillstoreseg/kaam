@@ -45,7 +45,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isPlatformOwner } = useAuth();
 
   if (loading) {
     return (
@@ -55,7 +55,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return !user ? <>{children}</> : <Navigate to="/" />;
+  if (user) {
+    return <Navigate to={isPlatformOwner() ? '/admin/tenants' : '/'} />;
+  }
+
+  return <>{children}</>;
 }
 
 function App() {

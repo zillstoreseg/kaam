@@ -266,19 +266,27 @@ export default function TenantList() {
           {tenants.length === 0 && (
             <div className="text-center py-12">
               <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No tenants yet. Create your first tenant to get started.</p>
+              <p className="text-gray-500 mb-4">No tenants found. This is unusual.</p>
+              <p className="text-sm text-gray-400">
+                The "Main Academy" tenant should have been created during migration.
+                <br />
+                Click "Create Tenant" above to add your first academy.
+              </p>
             </div>
           )}
         </div>
 
-        <div className="mt-6 flex gap-4">
-          <button
-            onClick={() => navigate('/')}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+        {tenants.length > 0 && (
+          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Quick Tips</h3>
+            <ul className="space-y-2 text-sm text-blue-800">
+              <li>• <strong>Login As:</strong> Click to impersonate tenant for support (no password needed)</li>
+              <li>• <strong>Edit:</strong> Modify tenant details, plan, and subscription dates</li>
+              <li>• <strong>Suspend/Activate:</strong> Control tenant access instantly</li>
+              <li>• Your existing data is in "<strong>Main Academy</strong>" tenant</li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
