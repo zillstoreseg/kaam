@@ -92,7 +92,7 @@ export default function InactivePlayers() {
         `)
         .eq('is_active', true);
 
-      if (profile?.role === 'branch_manager' && profile?.branch_id) {
+      if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
 
