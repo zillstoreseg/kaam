@@ -214,6 +214,7 @@ export default function Dashboard() {
   const [inactivePlayersCount, setInactivePlayersCount] = useState(0);
 
   useEffect(() => {
+    if (!profile) return;
     loadStats();
     loadAlerts();
     loadReferralData();
@@ -225,7 +226,13 @@ export default function Dashboard() {
   }, [profile]);
 
   async function loadStats() {
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
+
     try {
+      setLoading(true);
       const today = new Date().toISOString().split('T')[0];
       const nextMonth = new Date();
       nextMonth.setMonth(nextMonth.getMonth() + 1);

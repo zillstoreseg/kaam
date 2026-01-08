@@ -132,7 +132,15 @@ export default function Layout() {
   }
 
   function canViewPage(page: PageName): boolean {
-    if (profile?.role === 'super_admin') return true;
+    // Platform owners, platform admins, and super admins can view all pages
+    if (profile?.role === 'super_admin' || profile?.role === 'platform_owner' || profile?.role === 'platform_admin') {
+      return true;
+    }
+    // Branch managers can view all pages by default
+    if (profile?.role === 'branch_manager') {
+      return true;
+    }
+    // For other roles, check permissions
     const permission = permissions.find(p => p.page === page);
     return permission?.can_view || false;
   }
@@ -178,14 +186,15 @@ export default function Layout() {
     { name: t('nav.settings'), href: '/settings', icon: Settings, page: 'settings' as PageName },
   ];
 
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'branch_manager';
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'branch_manager' || profile?.role === 'platform_owner' || profile?.role === 'platform_admin';
   const navigation = [
     ...baseNavigation,
     ...(isAdmin ? securityNavigation : []),
     ...adminNavigation,
   ];
 
-  const filteredNav = navigation.filter((item) => canViewPage(item.page));
+  // If profile not loaded yet or is admin role, show all navigation as fallback
+  const filteredNav = !profile ? [] : navigation.filter((item) => canViewPage(item.page));
 
   const handleSignOut = async () => {
     await signOut();
