@@ -27,18 +27,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) {
         if (error.message?.includes('function') || error.code === '42883') {
-          const { data: roleData, error: roleError } = await supabase
-            .from('platform_roles')
-            .select('role')
-            .eq('user_id', session.session.user.id)
-            .maybeSingle();
-
-          if (roleError) {
-            console.warn('Platform owner features not available');
-            setIsOwner(false);
-          } else {
-            setIsOwner(roleData?.role === 'owner' || roleData?.role === 'super_owner');
-          }
+          console.warn('Platform owner features not available - SaaS layer not enabled');
+          setIsOwner(false);
         } else {
           console.error('Error checking platform role:', error);
           setIsOwner(false);
