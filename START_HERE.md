@@ -1,46 +1,31 @@
-# 🚀 START HERE - Platform Owner Access
+# 🚨 ONE SIMPLE STEP - DO THIS NOW
 
-## ⚡ Quick Setup (3 Steps)
+Everything is automated except one security step that requires Supabase SQL Editor.
 
-### Step 1: Apply Database Migrations
+**This takes 60 seconds.**
 
-The platform tables need to be created first. Choose one method:
+---
 
-#### Method A: Supabase Dashboard SQL Editor (Easiest)
+## What To Do
 
-1. Open [Supabase Dashboard](https://viwgdxffvehogkflhkjw.supabase.co)
-2. Go to **SQL Editor** → **New Query**
-3. Copy/paste **`supabase/migrations/20260201000000_create_saas_platform_owner_layer.sql`**
-4. Click **Run**
-5. Copy/paste **`supabase/migrations/20260201000001_seed_platform_data.sql`**
-6. Click **Run**
+### Step 1: Open SQL Editor
 
-#### Method B: Use Quick Setup Script
+Click: https://viwgdxffvehogkflhkjw.supabase.co/project/viwgdxffvehogkflhkjw/sql/new
 
-1. Open [Supabase Dashboard](https://viwgdxffvehogkflhkjw.supabase.co)
-2. Go to **SQL Editor** → **New Query**
-3. Copy/paste **`create-owner-quick.sql`**
-4. Click **Run**
+### Step 2: Copy & Paste SQL
 
-### Step 2: Create Owner Account
-
-Run the automated setup script:
-
-```bash
-node setup-owner.mjs
-```
-
-This creates your owner account with:
-- **Email**: `owner@dojocloud.com`
-- **Password**: `Owner123!@#`
+Open `FINAL_SETUP_SQL.sql` → Copy entire file → Paste in SQL Editor → Click **Run**
 
 ### Step 3: Login
 
-1. Open your app at the login page
-2. Enter the credentials above
-3. You'll see **"Platform Admin"** in the sidebar (👑 icon)
-4. Click it to access `/platform-admin`
-5. **Change your password immediately!**
+- **Email:** owner@dojocloud.com
+- **Password:** Owner123!@#
+
+1. Log out of current session
+2. Login with these credentials
+3. Click **"Platform Admin"** in sidebar (crown icon)
+
+**Done!**
 
 ---
 
