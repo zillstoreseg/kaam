@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase, StockItem, StockCategory, Scheme } from '../lib/supabase';
 import { Plus, Edit2, Trash2, X, Package, Search, AlertTriangle } from 'lucide-react';
+import { FeatureGate } from '../components/FeatureGate';
+import { FEATURES } from '../lib/featureHelpers';
 
 interface StockItemWithCategory extends StockItem {
   category?: StockCategory;
@@ -149,6 +151,7 @@ export default function Stock() {
   if (loading) return <div className="text-center py-12">Loading...</div>;
 
   return (
+    <FeatureGate featureKey={FEATURES.STOCK}>
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -461,5 +464,6 @@ export default function Stock() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

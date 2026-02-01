@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Branch } from '../lib/supabase';
 import { Plus, Edit2, Trash2, X, MapPin, User } from 'lucide-react';
+import { FeatureGate } from '../components/FeatureGate';
+import { FEATURES } from '../lib/featureHelpers';
 
 interface Profile {
   id: string;
@@ -108,6 +110,7 @@ export default function Branches() {
   if (loading) return <div className="text-center py-12">{t('common.loading')}</div>;
 
   return (
+    <FeatureGate featureKey={FEATURES.BRANCHES}>
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">{t('branches.title')}</h1>
@@ -187,5 +190,6 @@ export default function Branches() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

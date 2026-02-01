@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { BRANDING } from '../lib/constants';
 import {
   Building2,
   CreditCard,
@@ -236,7 +237,7 @@ export default function PlatformAdmin() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold">DOJO CLOUD - Platform Admin</h1>
+          <h1 className="text-3xl font-bold">{BRANDING.SYSTEM_NAME} - Platform Admin</h1>
           <p className="mt-2 text-blue-100">Manage academies, plans, and features</p>
         </div>
       </div>

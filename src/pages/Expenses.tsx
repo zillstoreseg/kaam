@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase, Expense, Branch } from '../lib/supabase';
 import { DollarSign, Plus, X, Calendar, Filter, Download, TrendingUp } from 'lucide-react';
 import { logAudit, AuditActions, AuditEntityTypes, getChangedFields } from '../lib/auditLogger';
+import { FeatureGate } from '../components/FeatureGate';
+import { FEATURES } from '../lib/featureHelpers';
 
 interface ExpenseWithDetails extends Expense {
   branch?: Branch;
@@ -223,6 +225,7 @@ export default function Expenses() {
   if (loading) return <div className="text-center py-12">Loading...</div>;
 
   return (
+    <FeatureGate featureKey={FEATURES.EXPENSES}>
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
@@ -499,5 +502,6 @@ export default function Expenses() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }
