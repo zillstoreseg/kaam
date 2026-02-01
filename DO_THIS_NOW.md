@@ -1,165 +1,96 @@
-# ⚡ DO THIS NOW - Fix Your Platform Owner Access
+# RUN THIS SQL IN SUPABASE
 
-## The Problem
+Go to: https://viwgdxffvehogkflhkjw.supabase.co/project/viwgdxffvehogkflhkjw/sql/new
 
-You logged in but:
-- Sidebar is empty (no "Platform Admin" button)
-- You see regular dashboard statistics, not academy management
-- Platform owner tables don't exist yet in your database
+Copy everything below and paste in SQL Editor, then click RUN:
 
-## The Solution (3 Simple Steps)
+```sql
+CREATE TABLE IF NOT EXISTS platform_roles (user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, role text NOT NULL CHECK (role IN ('owner', 'super_owner')) DEFAULT 'owner', created_at timestamptz DEFAULT now());
+ALTER TABLE platform_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own platform role" ON platform_roles;
+CREATE POLICY "Users can view own platform role" ON platform_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Owners can insert platform roles" ON platform_roles;
+CREATE POLICY "Owners can insert platform roles" ON platform_roles FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update platform roles" ON platform_roles;
+CREATE POLICY "Owners can update platform roles" ON platform_roles FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete platform roles" ON platform_roles;
+CREATE POLICY "Owners can delete platform roles" ON platform_roles FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
-### Step 1: Apply Database Migrations
+CREATE TABLE IF NOT EXISTS plans (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, price_monthly numeric(10,2) NOT NULL DEFAULT 0, description text, created_at timestamptz DEFAULT now());
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners can view plans" ON plans;
+CREATE POLICY "Owners can view plans" ON plans FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can insert plans" ON plans;
+CREATE POLICY "Owners can insert plans" ON plans FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update plans" ON plans;
+CREATE POLICY "Owners can update plans" ON plans FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete plans" ON plans;
+CREATE POLICY "Owners can delete plans" ON plans FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
-**Go to Supabase Dashboard:**
-1. Open: https://viwgdxffvehogkflhkjw.supabase.co
-2. Click **SQL Editor** in left sidebar
-3. Click **New Query**
-4. Open the file: **`APPLY_ALL_MIGRATIONS.sql`** (in your project root)
-5. **Copy the ENTIRE file contents**
-6. **Paste** into the SQL Editor
-7. Click **Run** button (top right)
+CREATE TABLE IF NOT EXISTS features (key text PRIMARY KEY, label text NOT NULL, category text NOT NULL, created_at timestamptz DEFAULT now());
+ALTER TABLE features ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners can view features" ON features;
+CREATE POLICY "Owners can view features" ON features FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can insert features" ON features;
+CREATE POLICY "Owners can insert features" ON features FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update features" ON features;
+CREATE POLICY "Owners can update features" ON features FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete features" ON features;
+CREATE POLICY "Owners can delete features" ON features FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
-**What this does:**
-- Creates all platform tables (platform_roles, plans, features, academies, etc.)
-- Sets up security policies
-- Seeds initial data (3 plans, 21 features)
-- Shows you what to do next
+CREATE TABLE IF NOT EXISTS plan_features (plan_id uuid REFERENCES plans(id) ON DELETE CASCADE, feature_key text REFERENCES features(key) ON DELETE CASCADE, enabled boolean DEFAULT true, PRIMARY KEY (plan_id, feature_key));
+ALTER TABLE plan_features ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners can view plan features" ON plan_features;
+CREATE POLICY "Owners can view plan features" ON plan_features FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can insert plan features" ON plan_features;
+CREATE POLICY "Owners can insert plan features" ON plan_features FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update plan features" ON plan_features;
+CREATE POLICY "Owners can update plan features" ON plan_features FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete plan features" ON plan_features;
+CREATE POLICY "Owners can delete plan features" ON plan_features FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
----
+CREATE TABLE IF NOT EXISTS academies (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, domain text UNIQUE NOT NULL, status text NOT NULL CHECK (status IN ('active', 'suspended')) DEFAULT 'active', plan_id uuid REFERENCES plans(id), subscription_status text NOT NULL CHECK (subscription_status IN ('active', 'expired', 'trial', 'suspended')) DEFAULT 'trial', expires_at timestamptz, created_at timestamptz DEFAULT now());
+ALTER TABLE academies ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners can view academies" ON academies;
+CREATE POLICY "Owners can view academies" ON academies FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can insert academies" ON academies;
+CREATE POLICY "Owners can insert academies" ON academies FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update academies" ON academies;
+CREATE POLICY "Owners can update academies" ON academies FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete academies" ON academies;
+CREATE POLICY "Owners can delete academies" ON academies FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
-### Step 2: Create Owner Account
+CREATE TABLE IF NOT EXISTS academy_feature_overrides (academy_id uuid REFERENCES academies(id) ON DELETE CASCADE, feature_key text REFERENCES features(key) ON DELETE CASCADE, enabled boolean DEFAULT true, created_at timestamptz DEFAULT now(), PRIMARY KEY (academy_id, feature_key));
+ALTER TABLE academy_feature_overrides ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners can view academy feature overrides" ON academy_feature_overrides;
+CREATE POLICY "Owners can view academy feature overrides" ON academy_feature_overrides FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can insert academy feature overrides" ON academy_feature_overrides;
+CREATE POLICY "Owners can insert academy feature overrides" ON academy_feature_overrides FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update academy feature overrides" ON academy_feature_overrides;
+CREATE POLICY "Owners can update academy feature overrides" ON academy_feature_overrides FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete academy feature overrides" ON academy_feature_overrides;
+CREATE POLICY "Owners can delete academy feature overrides" ON academy_feature_overrides FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
-**Option A: Use the Script (Easiest)**
+CREATE TABLE IF NOT EXISTS subscriptions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), academy_id uuid REFERENCES academies(id) ON DELETE CASCADE, plan_id uuid REFERENCES plans(id), starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL, status text NOT NULL CHECK (status IN ('active', 'expired', 'cancelled')) DEFAULT 'active', created_at timestamptz DEFAULT now());
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners can view subscriptions" ON subscriptions;
+CREATE POLICY "Owners can view subscriptions" ON subscriptions FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can insert subscriptions" ON subscriptions;
+CREATE POLICY "Owners can insert subscriptions" ON subscriptions FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can update subscriptions" ON subscriptions;
+CREATE POLICY "Owners can update subscriptions" ON subscriptions FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
+DROP POLICY IF EXISTS "Owners can delete subscriptions" ON subscriptions;
+CREATE POLICY "Owners can delete subscriptions" ON subscriptions FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')));
 
-In your terminal, run:
-```bash
-node setup-owner.mjs
+INSERT INTO plans (id, name, price_monthly, description) VALUES ('11111111-1111-1111-1111-111111111111', 'Basic', 29.99, 'Essential features for small academies'), ('22222222-2222-2222-2222-222222222222', 'Pro', 79.99, 'Advanced features for growing academies'), ('33333333-3333-3333-3333-333333333333', 'Elite', 149.99, 'Full feature access for large academies') ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO features (key, label, category) VALUES ('dashboard', 'Dashboard', 'core'), ('students', 'Students Management', 'core'), ('attendance', 'Attendance Tracking', 'core'), ('branches', 'Branch Management', 'management'), ('users', 'User Management', 'management'), ('packages', 'Package Management', 'management'), ('schemes', 'Scheme Management', 'management'), ('invoices', 'Invoice Management', 'finance'), ('sales', 'Sales Tracking', 'finance'), ('expenses', 'Expense Tracking', 'finance'), ('reports', 'Reports', 'reports'), ('revenue_reports', 'Revenue Reports', 'reports'), ('attendance_reports', 'Attendance Reports', 'reports'), ('exam_eligibility', 'Exam Eligibility', 'features'), ('inactive_players', 'Inactive Players', 'features'), ('activity_log', 'Activity Log', 'management'), ('login_history', 'Login History', 'management'), ('security_alerts', 'Security Alerts', 'management'), ('stock', 'Stock Management', 'inventory'), ('stock_inventory', 'Stock Inventory', 'inventory'), ('settings', 'Settings', 'core') ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES ('11111111-1111-1111-1111-111111111111', 'dashboard', true), ('11111111-1111-1111-1111-111111111111', 'students', true), ('11111111-1111-1111-1111-111111111111', 'attendance', true), ('11111111-1111-1111-1111-111111111111', 'packages', true), ('11111111-1111-1111-1111-111111111111', 'invoices', true), ('11111111-1111-1111-1111-111111111111', 'settings', true), ('22222222-2222-2222-2222-222222222222', 'dashboard', true), ('22222222-2222-2222-2222-222222222222', 'students', true), ('22222222-2222-2222-2222-222222222222', 'attendance', true), ('22222222-2222-2222-2222-222222222222', 'branches', true), ('22222222-2222-2222-2222-222222222222', 'users', true), ('22222222-2222-2222-2222-222222222222', 'packages', true), ('22222222-2222-2222-2222-222222222222', 'schemes', true), ('22222222-2222-2222-2222-222222222222', 'invoices', true), ('22222222-2222-2222-2222-222222222222', 'sales', true), ('22222222-2222-2222-2222-222222222222', 'expenses', true), ('22222222-2222-2222-2222-222222222222', 'reports', true), ('22222222-2222-2222-2222-222222222222', 'revenue_reports', true), ('22222222-2222-2222-2222-222222222222', 'attendance_reports', true), ('22222222-2222-2222-2222-222222222222', 'exam_eligibility', true), ('22222222-2222-2222-2222-222222222222', 'settings', true), ('33333333-3333-3333-3333-333333333333', 'dashboard', true), ('33333333-3333-3333-3333-333333333333', 'students', true), ('33333333-3333-3333-3333-333333333333', 'attendance', true), ('33333333-3333-3333-3333-333333333333', 'branches', true), ('33333333-3333-3333-3333-333333333333', 'users', true), ('33333333-3333-3333-3333-333333333333', 'packages', true), ('33333333-3333-3333-3333-333333333333', 'schemes', true), ('33333333-3333-3333-3333-333333333333', 'invoices', true), ('33333333-3333-3333-3333-333333333333', 'sales', true), ('33333333-3333-3333-3333-333333333333', 'expenses', true), ('33333333-3333-3333-3333-333333333333', 'reports', true), ('33333333-3333-3333-3333-333333333333', 'revenue_reports', true), ('33333333-3333-3333-3333-333333333333', 'attendance_reports', true), ('33333333-3333-3333-3333-333333333333', 'exam_eligibility', true), ('33333333-3333-3333-3333-333333333333', 'inactive_players', true), ('33333333-3333-3333-3333-333333333333', 'activity_log', true), ('33333333-3333-3333-3333-333333333333', 'login_history', true), ('33333333-3333-3333-3333-333333333333', 'security_alerts', true), ('33333333-3333-3333-3333-333333333333', 'stock', true), ('33333333-3333-3333-3333-333333333333', 'stock_inventory', true), ('33333333-3333-3333-3333-333333333333', 'settings', true) ON CONFLICT DO NOTHING;
+
+INSERT INTO platform_roles (user_id, role) VALUES ('a0ffa70f-01f6-43ab-be81-df9cd2ee438d', 'owner') ON CONFLICT (user_id) DO UPDATE SET role = 'owner';
 ```
 
-This will:
-- Create user: owner@dojocloud.com
+Login:
+- Email: owner@dojocloud.com
 - Password: Owner123!@#
-- Add platform owner role automatically
-
-**Option B: Manual Setup**
-
-1. In Supabase Dashboard, go to **Authentication** → **Users**
-2. Click **Add User**
-3. Fill in:
-   - **Email**: `owner@dojocloud.com`
-   - **Password**: `Owner123!@#` (or your choice)
-   - Check **"Auto Confirm User"**
-4. Click **Create User** or **Send Magic Link**
-5. **Copy the User ID** that appears
-
-6. Go back to **SQL Editor**
-7. Run this query (replace USER_ID):
-```sql
-INSERT INTO platform_roles (user_id, role)
-VALUES ('USER_ID_HERE', 'owner');
-```
-
----
-
-### Step 3: Login and Verify
-
-1. **Log out** of your current session
-2. **Login** with:
-   - Email: `owner@dojocloud.com`
-   - Password: `Owner123!@#`
-
-3. **You should now see:**
-   - **"Platform Admin"** button in sidebar (with 👑 crown icon)
-   - Click it to access `/platform-admin`
-
-4. **On Platform Admin page you'll see:**
-   - **Overview** tab - Academy statistics
-   - **Academies** tab - Manage tenant academies
-   - **Plans** tab - Subscription plans (Basic, Pro, Elite)
-   - **Features** tab - Available features
-
----
-
-## Quick Verification
-
-After Step 1, verify tables were created:
-
-```sql
--- Run this in Supabase SQL Editor
-SELECT
-  (SELECT COUNT(*) FROM platform_roles) as owner_count,
-  (SELECT COUNT(*) FROM plans) as plan_count,
-  (SELECT COUNT(*) FROM features) as feature_count;
-```
-
-Should show:
-- `owner_count`: 0 (or 1 if you ran Step 2)
-- `plan_count`: 3
-- `feature_count`: 21
-
----
-
-## Still Having Issues?
-
-### Problem: "Table doesn't exist"
-→ You skipped Step 1. Run `APPLY_ALL_MIGRATIONS.sql` in SQL Editor
-
-### Problem: "Cannot see Platform Admin button"
-→ Log out and log back in
-→ Clear browser cache
-→ Verify owner role exists:
-```sql
-SELECT * FROM platform_roles;
-```
-
-### Problem: "Shows 404 on /platform-admin"
-→ This is expected for non-owner accounts
-→ Make sure you're logged in with owner@dojocloud.com
-
-### Problem: "Script fails"
-→ Use manual method (Option B in Step 2)
-→ Or run SQL directly in dashboard
-
----
-
-## Files Reference
-
-| File | What It Does |
-|------|--------------|
-| **APPLY_ALL_MIGRATIONS.sql** | Creates all tables (run in Supabase Dashboard) |
-| **setup-owner.mjs** | Creates owner account (run in terminal) |
-| **DO_THIS_NOW.md** | This file - your quick start guide |
-| **START_HERE.md** | Detailed documentation |
-
----
-
-## Expected Result
-
-After completing all 3 steps, you should:
-
-✅ Have all platform tables in database
-✅ Have owner account created
-✅ See "Platform Admin" in sidebar
-✅ Be able to access `/platform-admin`
-✅ See Overview, Academies, Plans, Features tabs
-✅ Be able to create and manage academies
-
----
-
-## What's Different from Regular Dashboard?
-
-| Regular User | Platform Owner |
-|--------------|----------------|
-| ❌ No "Platform Admin" button | ✅ "Platform Admin" button visible |
-| Dashboard shows their academy stats | Overview shows all academies |
-| Cannot create academies | Can create unlimited academies |
-| Cannot change plans | Can assign/change plans |
-| Cannot override features | Can enable/disable features per academy |
-| `/platform-admin` shows 404 | `/platform-admin` works |
-
----
-
-**⚡ Start with Step 1 RIGHT NOW!**
-
-Open `APPLY_ALL_MIGRATIONS.sql` and run it in your Supabase Dashboard.
