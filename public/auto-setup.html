@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Platform Setup - Automatic</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .container {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #60a5fa;
+      margin-bottom: 30px;
+    }
+    .status {
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      background: #334155;
+    }
+    .success {
+      background: #065f46;
+      border-left: 4px solid #10b981;
+    }
+    .error {
+      background: #7f1d1d;
+      border-left: 4px solid #ef4444;
+    }
+    .loading {
+      background: #1e3a8a;
+      border-left: 4px solid #3b82f6;
+    }
+    .credentials {
+      background: #1e293b;
+      border: 2px solid #3b82f6;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+    .step {
+      padding: 10px 0;
+      display: flex;
+      align-items: center;
+    }
+    .step-icon {
+      margin-right: 10px;
+      font-size: 20px;
+    }
+    code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #60a5fa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Platform Owner Setup</h1>
+
+    <div id="status" class="status loading">
+      <div class="step">
+        <span class="step-icon">⏳</span>
+        <span>Initializing setup...</span>
+      </div>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+  <script type="module">
+    const SUPABASE_URL = window.location.origin.includes('localhost')
+      ? 'https://viwgdxffvehogkflhkjw.supabase.co'
+      : window.location.origin;
+
+    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpd2dkeGZmdmVob2drZmxoa2p3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzODgxNDIsImV4cCI6MjA3NTk2NDE0Mn0.36ApqRrZyupkDRhVZtsh0GpEHcbGyDMdqo-d8UAh1xw';
+
+    async function checkTablesExist() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/platform_roles?select=count`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`
+          }
+        });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    async function setup() {
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+
+      statusEl.className = 'status loading';
+      statusEl.innerHTML = '<div class="step"><span class="step-icon">🔍</span><span>Checking platform tables...</span></div>';
+
+      const tablesExist = await checkTablesExist();
+
+      if (tablesExist) {
+        statusEl.className = 'status success';
+        statusEl.innerHTML = '<div class="step"><span class="step-icon">✅</span><span>Platform tables already exist!</span></div>';
+
+        resultEl.innerHTML = `
+          <div class="credentials">
+            <h3>✅ Setup Complete - Ready to Login</h3>
+            <p><strong>Email:</strong> owner@dojocloud.com</p>
+            <p><strong>Password:</strong> Owner123!@#</p>
+          </div>
+          <div class="status success">
+            <h3>Next Steps:</h3>
+            <ol>
+              <li>Log out of your current session</li>
+              <li>Login with the credentials above</li>
+              <li>Click <strong>"Platform Admin"</strong> button in sidebar (👑 icon)</li>
+              <li>Manage academies, plans, and features</li>
+            </ol>
+          </div>
+        `;
+      } else {
+        statusEl.className = 'status error';
+        statusEl.innerHTML = '<div class="step"><span class="step-icon">⚠️</span><span>Platform tables need to be created</span></div>';
+
+        resultEl.innerHTML = `
+          <div class="status error">
+            <h3>⚠️ One-Time Setup Required</h3>
+            <p>The platform tables must be created via Supabase SQL Editor (security requirement).</p>
+
+            <h4>Quick Steps:</h4>
+            <ol>
+              <li>Open <a href="https://viwgdxffvehogkflhkjw.supabase.co/project/viwgdxffvehogkflhkjw/sql/new" target="_blank" style="color: #60a5fa;">Supabase SQL Editor</a></li>
+              <li>Open file: <code>supabase/migrations/20260201000000_create_saas_platform_owner_layer.sql</code></li>
+              <li>Copy entire file and paste into SQL Editor</li>
+              <li>Click <strong>Run</strong></li>
+              <li>Repeat for: <code>supabase/migrations/20260201000001_seed_platform_data.sql</code></li>
+              <li>Refresh this page</li>
+            </ol>
+          </div>
+          <div class="credentials">
+            <h3>Your Owner Credentials (After Setup):</h3>
+            <p><strong>Email:</strong> owner@dojocloud.com</p>
+            <p><strong>Password:</strong> Owner123!@#</p>
+          </div>
+          <button onclick="location.reload()">Check Again</button>
+        `;
+      }
+    }
+
+    setup();
+  </script>
+</body>
+</html>
