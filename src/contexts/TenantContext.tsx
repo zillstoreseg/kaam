@@ -39,8 +39,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       if (error) {
-        console.error('Error loading tenant config:', error);
-        setTenant(null);
+        if (error.message?.includes('function') || error.code === '42883') {
+          console.warn('Multi-tenant features not available');
+          setTenant(null);
+        } else {
+          console.error('Error loading tenant config:', error);
+          setTenant(null);
+        }
       } else if (data) {
         setTenant(data as TenantConfig);
       } else {

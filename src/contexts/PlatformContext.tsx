@@ -26,8 +26,23 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase.rpc('get_my_platform_role');
 
       if (error) {
-        console.error('Error checking platform role:', error);
-        setIsOwner(false);
+        if (error.message?.includes('function') || error.code === '42883') {
+          const { data: roleData, error: roleError } = await supabase
+            .from('platform_roles')
+            .select('role')
+            .eq('user_id', session.session.user.id)
+            .maybeSingle();
+
+          if (roleError) {
+            console.warn('Platform owner features not available');
+            setIsOwner(false);
+          } else {
+            setIsOwner(roleData?.role === 'owner' || roleData?.role === 'super_owner');
+          }
+        } else {
+          console.error('Error checking platform role:', error);
+          setIsOwner(false);
+        }
       } else {
         setIsOwner(data?.role === 'owner' || data?.role === 'super_owner');
       }
