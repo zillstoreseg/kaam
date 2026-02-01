@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { usePlatform } from '../contexts/PlatformContext';
 import { supabase, Settings as SettingsType, RolePermission, PageName } from '../lib/supabase';
 import ImpersonationBanner from './ImpersonationBanner';
 import {
@@ -29,6 +30,7 @@ import {
   Activity,
   History,
   AlertTriangle,
+  Crown,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -40,6 +42,7 @@ export default function Layout() {
   const langMenuRef = useRef<HTMLDivElement>(null);
   const { profile, signOut } = useAuth();
   const { t, language, setLanguage, isRTL } = useLanguage();
+  const { isOwner } = usePlatform();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -223,6 +226,23 @@ export default function Layout() {
           </div>
 
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {isOwner && (
+              <>
+                <Link
+                  to="/platform-admin"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    location.pathname === '/platform-admin'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-blue-600 hover:bg-blue-50 border border-blue-200'
+                  }`}
+                >
+                  <Crown className="w-5 h-5" />
+                  <span className="font-medium">Platform Admin</span>
+                </Link>
+                <div className="border-b border-gray-200 my-2"></div>
+              </>
+            )}
             {filteredNav.map((item) => {
               const isActive = location.pathname === item.href;
               return (

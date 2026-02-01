@@ -4,116 +4,79 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('Error: Missing Supabase credentials in .env file');
+  console.error('Required: VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function createPlatformOwner() {
+async function createPlatformOwner(email) {
   try {
-    console.log('Creating platform owner account...\n');
+    console.log(`\nSearching for user with email: ${email}...`);
 
-    // Create a new auth user
-    const email = 'admin@platform.com';
-    const password = 'admin123456';
+    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
 
-    console.log('Creating auth user...');
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true,
-    });
+    if (listError) {
+      throw listError;
+    }
 
-    if (authError) {
-      // Check if user already exists
-      if (authError.message.includes('already')) {
-        console.log('User already exists, trying to find profile...');
+    const user = users.find(u => u.email === email);
 
-        const { data: existingAuth } = await supabase.auth.admin.listUsers();
-        const existingUser = existingAuth?.users?.find(u => u.email === email);
+    if (!user) {
+      console.error(`\nError: User with email ${email} not found.`);
+      console.log('\nPlease make sure the user account exists first.');
+      process.exit(1);
+    }
 
-        if (existingUser) {
-          // Check if profile exists
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', existingUser.id)
-            .maybeSingle();
+    console.log(`Found user: ${user.email} (ID: ${user.id})`);
 
-          if (existingProfile) {
-            console.log('Profile exists, upgrading to platform_owner...');
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update({
-                role: 'platform_owner',
-                tenant_id: null
-              })
-              .eq('id', existingUser.id);
+    const { data: existingRole, error: checkError } = await supabase
+      .from('platform_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-            if (updateError) {
-              console.error('Error updating profile:', updateError);
-              return;
-            }
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
 
-            console.log('\n✅ Account upgraded to platform_owner!');
-            console.log(`\nLogin Credentials:`);
-            console.log(`Email: ${email}`);
-            console.log(`Password: ${password}`);
-            return;
-          } else {
-            // Create profile
-            console.log('Creating profile...');
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .insert({
-                id: existingUser.id,
-                full_name: 'Platform Admin',
-                role: 'platform_owner',
-                tenant_id: null
-              });
-
-            if (profileError) {
-              console.error('Error creating profile:', profileError);
-              return;
-            }
-
-            console.log('\n✅ Platform owner account created!');
-            console.log(`\nLogin Credentials:`);
-            console.log(`Email: ${email}`);
-            console.log(`Password: ${password}`);
-            return;
-          }
-        }
-      }
-
-      console.error('Auth error:', authError);
+    if (existingRole) {
+      console.log(`\nUser is already a platform owner with role: ${existingRole.role}`);
       return;
     }
 
-    // Create profile
-    console.log('Creating profile...');
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: authData.user.id,
-        full_name: 'Platform Admin',
-        role: 'platform_owner',
-        tenant_id: null
-      });
+    const { error: insertError } = await supabase
+      .from('platform_roles')
+      .insert([{
+        user_id: user.id,
+        role: 'owner'
+      }]);
 
-    if (profileError) {
-      console.error('Error creating profile:', profileError);
-      return;
+    if (insertError) {
+      throw insertError;
     }
 
-    console.log('\n✅ Platform owner account created!');
-    console.log(`\nLogin Credentials:`);
-    console.log(`Email: ${email}`);
-    console.log(`Password: ${password}`);
-    console.log('\nAfter login, you will be redirected to /admin/tenants');
+    console.log('\n✓ Successfully granted platform owner access!');
+    console.log(`\nUser ${email} can now access the Platform Admin dashboard at:`);
+    console.log('  /platform-admin');
+    console.log('\nThis link will appear in the sidebar after they log in.');
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('\nError creating platform owner:', error.message);
+    process.exit(1);
   }
 }
 
-createPlatformOwner();
+const email = process.argv[2];
+
+if (!email) {
+  console.log('\nUsage: node create-platform-owner.mjs <email>');
+  console.log('\nExample: node create-platform-owner.mjs owner@example.com');
+  process.exit(1);
+}
+
+createPlatformOwner(email);
