@@ -89,6 +89,100 @@ INSERT INTO features (key, label, category) VALUES ('dashboard', 'Dashboard', 'c
 INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES ('11111111-1111-1111-1111-111111111111', 'dashboard', true), ('11111111-1111-1111-1111-111111111111', 'students', true), ('11111111-1111-1111-1111-111111111111', 'attendance', true), ('11111111-1111-1111-1111-111111111111', 'packages', true), ('11111111-1111-1111-1111-111111111111', 'invoices', true), ('11111111-1111-1111-1111-111111111111', 'settings', true), ('22222222-2222-2222-2222-222222222222', 'dashboard', true), ('22222222-2222-2222-2222-222222222222', 'students', true), ('22222222-2222-2222-2222-222222222222', 'attendance', true), ('22222222-2222-2222-2222-222222222222', 'branches', true), ('22222222-2222-2222-2222-222222222222', 'users', true), ('22222222-2222-2222-2222-222222222222', 'packages', true), ('22222222-2222-2222-2222-222222222222', 'schemes', true), ('22222222-2222-2222-2222-222222222222', 'invoices', true), ('22222222-2222-2222-2222-222222222222', 'sales', true), ('22222222-2222-2222-2222-222222222222', 'expenses', true), ('22222222-2222-2222-2222-222222222222', 'reports', true), ('22222222-2222-2222-2222-222222222222', 'revenue_reports', true), ('22222222-2222-2222-2222-222222222222', 'attendance_reports', true), ('22222222-2222-2222-2222-222222222222', 'exam_eligibility', true), ('22222222-2222-2222-2222-222222222222', 'settings', true), ('33333333-3333-3333-3333-333333333333', 'dashboard', true), ('33333333-3333-3333-3333-333333333333', 'students', true), ('33333333-3333-3333-3333-333333333333', 'attendance', true), ('33333333-3333-3333-3333-333333333333', 'branches', true), ('33333333-3333-3333-3333-333333333333', 'users', true), ('33333333-3333-3333-3333-333333333333', 'packages', true), ('33333333-3333-3333-3333-333333333333', 'schemes', true), ('33333333-3333-3333-3333-333333333333', 'invoices', true), ('33333333-3333-3333-3333-333333333333', 'sales', true), ('33333333-3333-3333-3333-333333333333', 'expenses', true), ('33333333-3333-3333-3333-333333333333', 'reports', true), ('33333333-3333-3333-3333-333333333333', 'revenue_reports', true), ('33333333-3333-3333-3333-333333333333', 'attendance_reports', true), ('33333333-3333-3333-3333-333333333333', 'exam_eligibility', true), ('33333333-3333-3333-3333-333333333333', 'inactive_players', true), ('33333333-3333-3333-3333-333333333333', 'activity_log', true), ('33333333-3333-3333-3333-333333333333', 'login_history', true), ('33333333-3333-3333-3333-333333333333', 'security_alerts', true), ('33333333-3333-3333-3333-333333333333', 'stock', true), ('33333333-3333-3333-3333-333333333333', 'stock_inventory', true), ('33333333-3333-3333-3333-333333333333', 'settings', true) ON CONFLICT DO NOTHING;
 
 INSERT INTO platform_roles (user_id, role) VALUES ('a0ffa70f-01f6-43ab-be81-df9cd2ee438d', 'owner') ON CONFLICT (user_id) DO UPDATE SET role = 'owner';
+
+CREATE OR REPLACE FUNCTION get_my_platform_role()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_role text;
+BEGIN
+  SELECT role INTO user_role
+  FROM platform_roles
+  WHERE user_id = auth.uid();
+
+  IF user_role IS NULL THEN
+    RETURN jsonb_build_object('role', null);
+  END IF;
+
+  RETURN jsonb_build_object('role', user_role);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_tenant_config_by_domain(domain_param text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  academy_config jsonb;
+  academy_plan jsonb;
+  academy_features jsonb;
+BEGIN
+  SELECT jsonb_build_object(
+    'academy_id', a.id,
+    'name', a.name,
+    'domain', a.domain,
+    'status', a.status,
+    'subscription_status', a.subscription_status,
+    'expires_at', a.expires_at
+  )
+  INTO academy_config
+  FROM academies a
+  WHERE a.domain = domain_param;
+
+  IF academy_config IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT jsonb_build_object(
+    'id', p.id,
+    'name', p.name,
+    'price_monthly', p.price_monthly,
+    'description', p.description
+  )
+  INTO academy_plan
+  FROM academies a
+  JOIN plans p ON a.plan_id = p.id
+  WHERE a.domain = domain_param;
+
+  SELECT jsonb_agg(f.key)
+  INTO academy_features
+  FROM (
+    SELECT DISTINCT pf.feature_key as key
+    FROM academies a
+    JOIN plan_features pf ON pf.plan_id = a.plan_id
+    WHERE a.domain = domain_param
+      AND pf.enabled = true
+      AND NOT EXISTS (
+        SELECT 1 FROM academy_feature_overrides afo
+        WHERE afo.academy_id = a.id
+          AND afo.feature_key = pf.feature_key
+          AND afo.enabled = false
+      )
+
+    UNION
+
+    SELECT afo.feature_key as key
+    FROM academies a
+    JOIN academy_feature_overrides afo ON afo.academy_id = a.id
+    WHERE a.domain = domain_param
+      AND afo.enabled = true
+  ) f;
+
+  RETURN jsonb_build_object(
+    'academy_id', academy_config->>'academy_id',
+    'name', academy_config->>'name',
+    'domain', academy_config->>'domain',
+    'status', academy_config->>'status',
+    'subscription_status', academy_config->>'subscription_status',
+    'expires_at', academy_config->>'expires_at',
+    'plan', academy_plan,
+    'features', COALESCE(academy_features, '[]'::jsonb)
+  );
+END;
+$$;
 ```
 
 Login:
