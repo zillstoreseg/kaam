@@ -1,34 +1,42 @@
 /*
-  ════════════════════════════════════════════════════════════════════════
-  DOJO CLOUD - Complete Platform Owner Setup
-  ════════════════════════════════════════════════════════════════════════
+  # Create SaaS Platform Owner Layer
 
-  This script does EVERYTHING needed to set up the platform owner system:
+  ## Overview
+  This migration adds a complete multi-tenant SaaS platform layer with owner management,
+  academy subscriptions, feature gating, and plan management. This layer wraps the existing
+  system without modifying any existing tables or functionality.
 
-  1. Creates all platform tables (platform_roles, plans, features, etc.)
-  2. Sets up RLS policies
-  3. Creates RPC functions
-  4. Seeds initial data (plans and features)
-  5. Shows you what to do next
+  ## New Tables
 
-  ════════════════════════════════════════════════════════════════════════
-  HOW TO USE:
-  ════════════════════════════════════════════════════════════════════════
+  ### 1. platform_roles
+  Purpose: Identifies platform owners who can access the owner dashboard.
 
-  1. Open Supabase Dashboard: https://viwgdxffvehogkflhkjw.supabase.co
-  2. Go to SQL Editor → New Query
-  3. Copy and paste this ENTIRE file
-  4. Click "Run"
-  5. Follow the instructions at the end
+  ### 2. plans
+  Purpose: Defines subscription plans with different feature sets and pricing.
 
-  ════════════════════════════════════════════════════════════════════════
+  ### 3. features
+  Purpose: Master list of all features/modules available in the system.
+
+  ### 4. plan_features
+  Purpose: Maps which features are available in each plan.
+
+  ### 5. academies
+  Purpose: Represents tenant academies with their subscription status.
+
+  ### 6. academy_feature_overrides
+  Purpose: Allows owners to override specific features for individual academies.
+
+  ### 7. subscriptions
+  Purpose: Tracks subscription history for each academy.
+
+  ## Security (RLS)
+  All tables have Row Level Security enabled with restrictive policies.
+
+  ## RPC Functions
+  1. get_my_platform_role() - Returns the current user's platform role (if any)
+  2. get_tenant_config_by_domain(domain text) - Returns academy configuration by domain
 */
 
--- ============================================================================
--- PART 1: CREATE PLATFORM TABLES
--- ============================================================================
-
--- Platform Roles Table
 CREATE TABLE IF NOT EXISTS platform_roles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   role text NOT NULL CHECK (role IN ('owner', 'super_owner')) DEFAULT 'owner',
@@ -77,7 +85,6 @@ CREATE POLICY "Owners can delete platform roles"
     )
   );
 
--- Plans Table
 CREATE TABLE IF NOT EXISTS plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -133,7 +140,6 @@ CREATE POLICY "Owners can delete plans"
     )
   );
 
--- Features Table
 CREATE TABLE IF NOT EXISTS features (
   key text PRIMARY KEY,
   label text NOT NULL,
@@ -188,7 +194,6 @@ CREATE POLICY "Owners can delete features"
     )
   );
 
--- Plan Features Table
 CREATE TABLE IF NOT EXISTS plan_features (
   plan_id uuid REFERENCES plans(id) ON DELETE CASCADE,
   feature_key text REFERENCES features(key) ON DELETE CASCADE,
@@ -243,7 +248,6 @@ CREATE POLICY "Owners can delete plan features"
     )
   );
 
--- Academies Table
 CREATE TABLE IF NOT EXISTS academies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -302,7 +306,6 @@ CREATE POLICY "Owners can delete academies"
     )
   );
 
--- Academy Feature Overrides Table
 CREATE TABLE IF NOT EXISTS academy_feature_overrides (
   academy_id uuid REFERENCES academies(id) ON DELETE CASCADE,
   feature_key text REFERENCES features(key) ON DELETE CASCADE,
@@ -358,7 +361,6 @@ CREATE POLICY "Owners can delete academy feature overrides"
     )
   );
 
--- Subscriptions Table
 CREATE TABLE IF NOT EXISTS subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   academy_id uuid REFERENCES academies(id) ON DELETE CASCADE,
@@ -415,10 +417,6 @@ CREATE POLICY "Owners can delete subscriptions"
       WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')
     )
   );
-
--- ============================================================================
--- PART 2: CREATE RPC FUNCTIONS
--- ============================================================================
 
 CREATE OR REPLACE FUNCTION get_my_platform_role()
 RETURNS jsonb
@@ -514,18 +512,24 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
--- PART 3: SEED INITIAL DATA
--- ============================================================================
+/*
+  # Seed Platform Data
 
--- Seed Plans
+  ## Overview
+  Seeds initial plans and features for the SaaS platform.
+
+  ## Data Seeded
+  1. Three subscription plans: Basic, Pro, Elite
+  2. All available features from the existing system
+  3. Feature mappings for each plan
+*/
+
 INSERT INTO plans (id, name, price_monthly, description) VALUES
   ('11111111-1111-1111-1111-111111111111', 'Basic', 29.99, 'Essential features for small academies'),
   ('22222222-2222-2222-2222-222222222222', 'Pro', 79.99, 'Advanced features for growing academies'),
   ('33333333-3333-3333-3333-333333333333', 'Elite', 149.99, 'Full feature access for large academies')
 ON CONFLICT (id) DO NOTHING;
 
--- Seed Features
 INSERT INTO features (key, label, category) VALUES
   ('dashboard', 'Dashboard', 'core'),
   ('students', 'Students Management', 'core'),
@@ -550,18 +554,14 @@ INSERT INTO features (key, label, category) VALUES
   ('settings', 'Settings', 'core')
 ON CONFLICT (key) DO NOTHING;
 
--- Seed Plan Features (Basic Plan)
 INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES
   ('11111111-1111-1111-1111-111111111111', 'dashboard', true),
   ('11111111-1111-1111-1111-111111111111', 'students', true),
   ('11111111-1111-1111-1111-111111111111', 'attendance', true),
   ('11111111-1111-1111-1111-111111111111', 'packages', true),
   ('11111111-1111-1111-1111-111111111111', 'invoices', true),
-  ('11111111-1111-1111-1111-111111111111', 'settings', true)
-ON CONFLICT DO NOTHING;
-
--- Seed Plan Features (Pro Plan)
-INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'settings', true),
+  
   ('22222222-2222-2222-2222-222222222222', 'dashboard', true),
   ('22222222-2222-2222-2222-222222222222', 'students', true),
   ('22222222-2222-2222-2222-222222222222', 'attendance', true),
@@ -576,11 +576,8 @@ INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES
   ('22222222-2222-2222-2222-222222222222', 'revenue_reports', true),
   ('22222222-2222-2222-2222-222222222222', 'attendance_reports', true),
   ('22222222-2222-2222-2222-222222222222', 'exam_eligibility', true),
-  ('22222222-2222-2222-2222-222222222222', 'settings', true)
-ON CONFLICT DO NOTHING;
-
--- Seed Plan Features (Elite Plan)
-INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES
+  ('22222222-2222-2222-2222-222222222222', 'settings', true),
+  
   ('33333333-3333-3333-3333-333333333333', 'dashboard', true),
   ('33333333-3333-3333-3333-333333333333', 'students', true),
   ('33333333-3333-3333-3333-333333333333', 'attendance', true),
@@ -603,60 +600,3 @@ INSERT INTO plan_features (plan_id, feature_key, enabled) VALUES
   ('33333333-3333-3333-3333-333333333333', 'stock_inventory', true),
   ('33333333-3333-3333-3333-333333333333', 'settings', true)
 ON CONFLICT DO NOTHING;
-
--- ============================================================================
--- PART 4: VERIFICATION & NEXT STEPS
--- ============================================================================
-
-DO $$
-BEGIN
-  RAISE NOTICE '';
-  RAISE NOTICE '════════════════════════════════════════════════════════════════';
-  RAISE NOTICE '✅ PLATFORM SETUP COMPLETE!';
-  RAISE NOTICE '════════════════════════════════════════════════════════════════';
-  RAISE NOTICE '';
-  RAISE NOTICE '📊 Tables Created:';
-  RAISE NOTICE '   ✓ platform_roles';
-  RAISE NOTICE '   ✓ plans (3 plans seeded)';
-  RAISE NOTICE '   ✓ features (21 features seeded)';
-  RAISE NOTICE '   ✓ plan_features (mapped to plans)';
-  RAISE NOTICE '   ✓ academies';
-  RAISE NOTICE '   ✓ academy_feature_overrides';
-  RAISE NOTICE '   ✓ subscriptions';
-  RAISE NOTICE '';
-  RAISE NOTICE '🔐 RLS Policies: All enabled and secured';
-  RAISE NOTICE '⚙️  RPC Functions: Created successfully';
-  RAISE NOTICE '';
-  RAISE NOTICE '════════════════════════════════════════════════════════════════';
-  RAISE NOTICE '📋 NEXT STEPS:';
-  RAISE NOTICE '════════════════════════════════════════════════════════════════';
-  RAISE NOTICE '';
-  RAISE NOTICE '1. Create Owner Account:';
-  RAISE NOTICE '   Go to: Authentication → Users → Add User';
-  RAISE NOTICE '   Email: owner@dojocloud.com';
-  RAISE NOTICE '   Password: Owner123!@# (or your choice)';
-  RAISE NOTICE '   ✓ Check "Auto Confirm User"';
-  RAISE NOTICE '';
-  RAISE NOTICE '2. Add Platform Owner Role:';
-  RAISE NOTICE '   Run this query (replace USER_ID):';
-  RAISE NOTICE '';
-  RAISE NOTICE '   INSERT INTO platform_roles (user_id, role)';
-  RAISE NOTICE '   VALUES (''USER_ID_HERE'', ''owner'');';
-  RAISE NOTICE '';
-  RAISE NOTICE '   Or use: node setup-owner.mjs (in your project)';
-  RAISE NOTICE '';
-  RAISE NOTICE '3. Login:';
-  RAISE NOTICE '   Use the credentials you created';
-  RAISE NOTICE '   Look for "Platform Admin" in sidebar';
-  RAISE NOTICE '   Click to access /platform-admin';
-  RAISE NOTICE '';
-  RAISE NOTICE '════════════════════════════════════════════════════════════════';
-  RAISE NOTICE '';
-END $$;
-
--- Show current status
-SELECT
-  (SELECT COUNT(*) FROM platform_roles) as owner_count,
-  (SELECT COUNT(*) FROM plans) as plan_count,
-  (SELECT COUNT(*) FROM features) as feature_count,
-  (SELECT COUNT(*) FROM academies) as academy_count;
