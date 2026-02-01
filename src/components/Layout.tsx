@@ -240,10 +240,12 @@ export default function Layout() {
                   <Crown className="w-5 h-5" />
                   <span className="font-medium">Platform Admin</span>
                 </Link>
-                <div className="border-b border-gray-200 my-2"></div>
+                {profile?.role && (
+                  <div className="border-b border-gray-200 my-2"></div>
+                )}
               </>
             )}
-            {filteredNav.map((item) => {
+            {!isOwner && filteredNav.map((item) => {
               const isActive = location.pathname === item.href;
               return (
                 <Link

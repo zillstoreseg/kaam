@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { usePlatform } from '../contexts/PlatformContext';
 import { supabase, Settings as SettingsType, AttendanceAlert, Student, BeltRank } from '../lib/supabase';
 import { Users, Building2, ClipboardCheck, Package, Clock, DollarSign, UserPlus, UserCheck, TrendingUp, X, AlertTriangle, Award, Activity, UserX } from 'lucide-react';
 
@@ -188,6 +189,7 @@ function TopReferrers({ students }: { students: any[] }) {
 export default function Dashboard() {
   const { profile } = useAuth();
   const { t } = useLanguage();
+  const { isOwner, loading: platformLoading } = usePlatform();
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({
     totalStudents: 0,
@@ -212,6 +214,13 @@ export default function Dashboard() {
   const [medicalStats, setMedicalStats] = useState({ withCondition: 0, withoutCondition: 0 });
   const [monthlyExpenses, setMonthlyExpenses] = useState({ total: 0, count: 0 });
   const [inactivePlayersCount, setInactivePlayersCount] = useState(0);
+
+  // Redirect platform owners to Platform Admin
+  useEffect(() => {
+    if (!platformLoading && isOwner) {
+      navigate('/platform-admin');
+    }
+  }, [isOwner, platformLoading, navigate]);
 
   useEffect(() => {
     loadStats();
