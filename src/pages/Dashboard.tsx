@@ -215,13 +215,6 @@ export default function Dashboard() {
   const [monthlyExpenses, setMonthlyExpenses] = useState({ total: 0, count: 0 });
   const [inactivePlayersCount, setInactivePlayersCount] = useState(0);
 
-  // Redirect platform owners to Platform Admin
-  useEffect(() => {
-    if (!platformLoading && isOwner) {
-      navigate('/platform-admin');
-    }
-  }, [isOwner, platformLoading, navigate]);
-
   useEffect(() => {
     loadStats();
     loadAlerts();
