@@ -22,24 +22,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('Session error:', error);
-        setConnectionError(`Database connection failed: ${error.message}`);
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('Session error:', error);
+          setConnectionError(`Authentication error: ${error.message}`);
+          setLoading(false);
+          return;
+        }
+
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          await loadProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (err: any) {
+        console.error('Connection error:', err);
+        if (err.message && err.message.toLowerCase().includes('fetch')) {
+          setConnectionError('Unable to reach the database server. The database may be paused or your network connection may be down. Please wait 1-2 minutes and try again.');
+        } else {
+          setConnectionError(`Connection failed: ${err.message || 'Unknown error'}`);
+        }
         setLoading(false);
-        return;
       }
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    }).catch((err) => {
-      console.error('Connection error:', err);
-      setConnectionError('Unable to connect to database. Please check your connection.');
-      setLoading(false);
-    });
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       (async () => {
