@@ -55,10 +55,10 @@ function getStoredPlanLimits(): Record<string, StoredPlanLimits> {
 }
 
 const MARTIAL_ARTS_IMAGES = [
-  'https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg?auto=compress&cs=tinysrgb&w=900',
-  'https://images.pexels.com/photos/7045689/pexels-photo-7045689.jpeg?auto=compress&cs=tinysrgb&w=900',
-  'https://images.pexels.com/photos/8611468/pexels-photo-8611468.jpeg?auto=compress&cs=tinysrgb&w=900',
-  'https://images.pexels.com/photos/6253307/pexels-photo-6253307.jpeg?auto=compress&cs=tinysrgb&w=900',
+  'https://images.pexels.com/photos/4761671/pexels-photo-4761671.jpeg?auto=compress&cs=tinysrgb&w=900',
+  'https://images.pexels.com/photos/6296042/pexels-photo-6296042.jpeg?auto=compress&cs=tinysrgb&w=900',
+  'https://images.pexels.com/photos/4384679/pexels-photo-4384679.jpeg?auto=compress&cs=tinysrgb&w=900',
+  'https://images.pexels.com/photos/7045405/pexels-photo-7045405.jpeg?auto=compress&cs=tinysrgb&w=900',
 ];
 
 export default function LandingPage() {

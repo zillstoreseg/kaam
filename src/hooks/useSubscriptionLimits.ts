@@ -60,7 +60,11 @@ export function useSubscriptionLimits() {
   const [loading, setLoading] = useState(true);
 
   const loadLimits = useCallback(async () => {
-    if (!profile) return;
+    if (!profile) {
+      setLimits(UNLIMITED);
+      setLoading(false);
+      return;
+    }
 
     if (!profile.academy_id) {
       setLimits(UNLIMITED);
@@ -69,13 +73,13 @@ export function useSubscriptionLimits() {
     }
 
     try {
-      const { data: academy } = await supabase
+      const { data: academy, error: academyError } = await supabase
         .from('academies')
         .select('*, plan:plans(id, name, price_monthly)')
         .eq('id', profile.academy_id)
         .maybeSingle();
 
-      if (!academy) {
+      if (academyError || !academy) {
         setLimits(UNLIMITED);
         setLoading(false);
         return;

@@ -1,17 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Lock, CreditCard } from 'lucide-react';
 import { useSubscriptionLimits } from '../hooks/useSubscriptionLimits';
 
 export default function SubscriptionGate({ children }: { children: React.ReactNode }) {
   const { limits, loading } = useSubscriptionLimits();
+  const [timedOut, setTimedOut] = useState(false);
 
-  if (loading) {
+  useEffect(() => {
+    const t = setTimeout(() => setTimedOut(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (loading && !timedOut) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading...</div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin"></div>
       </div>
     );
+  }
+
+  if (timedOut && loading) {
+    return <>{children}</>;
   }
 
   if (limits?.is_expired) {
