@@ -216,8 +216,8 @@ export default function Dashboard() {
   const [inactivePlayersCount, setInactivePlayersCount] = useState(0);
 
   useEffect(() => {
-    if (!profile || !profile.academy_id) {
-      console.log('Profile not ready or missing academy_id:', profile);
+    if (!profile) {
+      console.log('Profile not ready:', profile);
       setLoading(false);
       return;
     }
@@ -234,12 +234,6 @@ export default function Dashboard() {
 
   async function loadStats() {
     try {
-      if (!profile?.academy_id) {
-        console.error('No academy_id in profile');
-        setLoading(false);
-        return;
-      }
-
       const today = new Date().toISOString().split('T')[0];
       const nextMonth = new Date();
       nextMonth.setMonth(nextMonth.getMonth() + 1);
@@ -250,10 +244,16 @@ export default function Dashboard() {
       firstDayOfMonth.setHours(0, 0, 0, 0);
       const firstDayStr = firstDayOfMonth.toISOString();
 
-      let studentsQuery = supabase.from('students').select('*', { count: 'exact', head: false }).eq('academy_id', profile.academy_id);
-      let branchesQuery = supabase.from('branches').select('*', { count: 'exact', head: false }).eq('academy_id', profile.academy_id);
+      let studentsQuery = supabase.from('students').select('*', { count: 'exact', head: false });
+      let branchesQuery = supabase.from('branches').select('*', { count: 'exact', head: false });
       let attendanceQuery = supabase.from('attendance').select('*', { count: 'exact', head: false }).eq('attendance_date', today);
-      let invoicesQuery = supabase.from('invoices').select('total_amount').eq('academy_id', profile.academy_id);
+      let invoicesQuery = supabase.from('invoices').select('total_amount');
+
+      if (profile?.academy_id) {
+        studentsQuery = studentsQuery.eq('academy_id', profile.academy_id);
+        branchesQuery = branchesQuery.eq('academy_id', profile.academy_id);
+        invoicesQuery = invoicesQuery.eq('academy_id', profile.academy_id);
+      }
 
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
@@ -266,7 +266,10 @@ export default function Dashboard() {
       const attendanceRes = await attendanceQuery;
       const invoicesRes = await invoicesQuery;
 
-      let activeQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('academy_id', profile.academy_id).eq('is_active', true);
+      let activeQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_active', true);
+      if (profile?.academy_id) {
+        activeQuery = activeQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         activeQuery = activeQuery.eq('branch_id', profile.branch_id);
       }
@@ -277,38 +280,51 @@ export default function Dashboard() {
       const threeDaysLaterStr = threeDaysLater.toISOString().split('T')[0];
 
       let expiringQuery = supabase.from('students').select('*', { count: 'exact', head: true })
-        .eq('academy_id', profile.academy_id)
         .eq('is_active', true)
         .lte('package_end', threeDaysLaterStr)
         .gte('package_end', today);
+      if (profile?.academy_id) {
+        expiringQuery = expiringQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         expiringQuery = expiringQuery.eq('branch_id', profile.branch_id);
       }
       const expiringRes = await expiringQuery;
 
-      let monthlyInvoicesQuery = supabase.from('invoices').select('total_amount').eq('academy_id', profile.academy_id).gte('created_at', firstDayStr);
-
+      let monthlyInvoicesQuery = supabase.from('invoices').select('total_amount').gte('created_at', firstDayStr);
+      if (profile?.academy_id) {
+        monthlyInvoicesQuery = monthlyInvoicesQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         monthlyInvoicesQuery = monthlyInvoicesQuery.eq('branch_id', profile.branch_id);
       }
       const monthlyInvoicesRes = await monthlyInvoicesQuery;
 
-      let joinedTodayQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('academy_id', profile.academy_id).eq('joined_date', today);
+      let joinedTodayQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('joined_date', today);
+      if (profile?.academy_id) {
+        joinedTodayQuery = joinedTodayQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         joinedTodayQuery = joinedTodayQuery.eq('branch_id', profile.branch_id);
       }
       const joinedTodayRes = await joinedTodayQuery;
 
       let trialQuery = supabase.from('students').select('*', { count: 'exact', head: true })
-        .eq('academy_id', profile.academy_id)
         .eq('trial_student', true)
         .eq('is_active', true);
+      if (profile?.academy_id) {
+        trialQuery = trialQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         trialQuery = trialQuery.eq('branch_id', profile.branch_id);
       }
       const trialRes = await trialQuery;
 
-      const settingsRes = await supabase.from('settings').select('*').eq('academy_id', profile.academy_id).maybeSingle();
+      let settingsQuery = supabase.from('settings').select('*');
+      if (profile?.academy_id) {
+        settingsQuery = settingsQuery.eq('academy_id', profile.academy_id);
+      }
+      const settingsRes = await settingsQuery.maybeSingle();
 
       const totalRev = invoicesRes.data?.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0) || 0;
       const monthlyRev = monthlyInvoicesRes.data?.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0) || 0;
@@ -371,9 +387,10 @@ export default function Dashboard() {
 
   async function loadBeltDistribution() {
     try {
-      if (!profile?.academy_id) return;
-
-      let query = supabase.from('students').select('belt_key').eq('academy_id', profile.academy_id).eq('is_active', true);
+      let query = supabase.from('students').select('belt_key').eq('is_active', true);
+      if (profile?.academy_id) {
+        query = query.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
       }
@@ -394,9 +411,10 @@ export default function Dashboard() {
 
   async function loadMedicalStats() {
     try {
-      if (!profile?.academy_id) return;
-
-      let query = supabase.from('students').select('has_chronic_condition').eq('academy_id', profile.academy_id).eq('is_active', true);
+      let query = supabase.from('students').select('has_chronic_condition').eq('is_active', true);
+      if (profile?.academy_id) {
+        query = query.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
       }
@@ -414,8 +432,6 @@ export default function Dashboard() {
 
   async function loadMonthlyExpenses() {
     try {
-      if (!profile?.academy_id) return;
-
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -423,10 +439,12 @@ export default function Dashboard() {
       let query = supabase
         .from('expenses')
         .select('amount')
-        .eq('academy_id', profile.academy_id)
         .gte('expense_date', firstDay)
         .lte('expense_date', lastDay);
 
+      if (profile?.academy_id) {
+        query = query.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
       }
@@ -443,9 +461,11 @@ export default function Dashboard() {
 
   async function loadInactivePlayersCount() {
     try {
-      if (!profile?.academy_id) return;
-
-      const { data: settingsData } = await supabase.from('settings').select('*').eq('academy_id', profile.academy_id).maybeSingle();
+      let settingsQuery = supabase.from('settings').select('*');
+      if (profile?.academy_id) {
+        settingsQuery = settingsQuery.eq('academy_id', profile.academy_id);
+      }
+      const { data: settingsData } = await settingsQuery.maybeSingle();
       if (!settingsData || !settingsData.enable_inactive_alerts) return;
 
       const thresholdDays = settingsData.inactive_threshold_days || 14;
@@ -453,9 +473,11 @@ export default function Dashboard() {
       let studentsQuery = supabase
         .from('students')
         .select('id, created_at')
-        .eq('academy_id', profile.academy_id)
         .eq('is_active', true);
 
+      if (profile?.academy_id) {
+        studentsQuery = studentsQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
@@ -496,8 +518,6 @@ export default function Dashboard() {
 
   async function loadAlerts() {
     try {
-      if (!profile?.academy_id) return;
-
       const { data, error } = await supabase
         .from('attendance_alerts')
         .select('*, student:students(*)')
@@ -514,13 +534,13 @@ export default function Dashboard() {
 
   async function loadReferralData() {
     try {
-      if (!profile?.academy_id) return;
-
       let query = supabase
         .from('students')
-        .select('referral_source, id, full_name, referred_by_student_id')
-        .eq('academy_id', profile.academy_id);
+        .select('referral_source, id, full_name, referred_by_student_id');
 
+      if (profile?.academy_id) {
+        query = query.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
       }
@@ -582,28 +602,6 @@ export default function Dashboard() {
   const currencySymbol = settings?.currency_symbol || 'AED';
 
   if (loading) return <div className="text-center py-12">Loading...</div>;
-
-  if (!profile?.academy_id) {
-    return (
-      <div className="text-center py-12">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to DOJO CLOUD</h2>
-          <p className="text-gray-700 mb-4">
-            Your account is being set up. Please refresh the page in a moment.
-          </p>
-          <p className="text-sm text-gray-600">
-            If this persists, please contact support or try logging out and back in.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white rounded-lg font-semibold hover:shadow-lg transition"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div>

@@ -74,14 +74,14 @@ export default function Register() {
 
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({
+          .upsert({
+            id: authData.user.id,
             academy_id: academy.id,
             platform_role: 'academy_admin',
             role: 'super_admin',
             full_name: formData.ownerName,
             email: formData.email,
-          })
-          .eq('id', authData.user.id);
+          });
 
         if (profileError) throw profileError;
 

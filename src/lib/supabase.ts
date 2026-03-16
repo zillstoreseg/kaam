@@ -51,6 +51,9 @@ export interface Profile {
   role: UserRole;
   branch_id: string | null;
   tenant_id: string | null;
+  academy_id: string | null;
+  platform_role: string | null;
+  email: string | null;
   created_at: string;
 }
 
