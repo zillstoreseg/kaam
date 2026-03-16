@@ -177,6 +177,37 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      case 'run_migration': {
+        const migrations = [
+          `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS academy_id uuid REFERENCES academies(id) ON DELETE SET NULL`,
+          `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS platform_role text DEFAULT NULL`,
+          `CREATE INDEX IF NOT EXISTS idx_profiles_academy_id ON profiles(academy_id)`,
+          `DO $body$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'academies' AND policyname = 'Academy admins can insert their academy') THEN EXECUTE 'CREATE POLICY "Academy admins can insert their academy" ON academies FOR INSERT TO authenticated WITH CHECK (true)'; END IF; END $body$`,
+          `DO $body$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'academies' AND policyname = 'Academy admins can view own academy') THEN EXECUTE 'CREATE POLICY "Academy admins can view own academy" ON academies FOR SELECT TO authenticated USING (id IN (SELECT academy_id FROM profiles WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN (''owner'', ''super_owner'')))'; END IF; END $body$`,
+          `DO $body$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can insert own profile') THEN EXECUTE 'CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid())'; END IF; END $body$`,
+          `DO $body$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can update own profile') THEN EXECUTE 'CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid())'; END IF; END $body$`,
+        ];
+
+        const results = [];
+        for (const sql of migrations) {
+          try {
+            const { error } = await supabase.rpc('exec_ddl', { ddl: sql });
+            if (error && !error.message.includes('already exists') && !error.message.includes('does not exist')) {
+              results.push({ sql: sql.substring(0, 50), status: 'error', error: error.message });
+            } else {
+              results.push({ sql: sql.substring(0, 50), status: 'ok' });
+            }
+          } catch (e: any) {
+            results.push({ sql: sql.substring(0, 50), status: 'error', error: e.message });
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, results }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
