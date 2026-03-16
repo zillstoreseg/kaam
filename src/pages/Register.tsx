@@ -122,9 +122,34 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
+        }
+        @keyframes gradient-shift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .gradient-text {
+          background: linear-gradient(135deg, #06b6d4, #10b981, #06b6d4);
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: gradient-shift 3s ease infinite;
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+      `}</style>
+
       <nav className="p-4">
-        <Link to="/" className="inline-flex items-center text-gray-600 hover:text-gray-900 transition">
+        <Link to="/" className="inline-flex items-center text-slate-300 hover:text-cyan-400 transition">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Home
         </Link>
@@ -135,17 +160,20 @@ export default function Register() {
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="flex items-center">
-                <Trophy className="w-10 h-10 text-blue-600" />
-                <span className="ml-2 text-2xl font-bold text-gray-900">DOJO CLOUD</span>
+                <div className="relative">
+                  <Trophy className="w-10 h-10 text-cyan-400 animate-pulse-glow" />
+                  <div className="absolute inset-0 blur-xl bg-cyan-400 opacity-50 animate-pulse-glow"></div>
+                </div>
+                <span className="ml-3 text-2xl font-bold gradient-text">DOJO CLOUD</span>
               </div>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Start Your Free Trial</h1>
-            <p className="text-gray-600">14 days free, no credit card required</p>
+            <h1 className="text-4xl font-bold text-white mb-2">Start Your Free Trial</h1>
+            <p className="text-slate-300">14 days free, no credit card required</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-8">
+          <div className="glass-effect rounded-2xl shadow-2xl p-8 border border-cyan-500/20">
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg">
                 {error}
               </div>
             )}
@@ -153,7 +181,7 @@ export default function Register() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Academy Name
                   </label>
                   <input
@@ -162,13 +190,13 @@ export default function Register() {
                     required
                     value={formData.academyName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                     placeholder="Your Academy Name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Owner Name
                   </label>
                   <input
@@ -177,14 +205,14 @@ export default function Register() {
                     required
                     value={formData.ownerName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                     placeholder="Your Full Name"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Email Address
                 </label>
                 <input
@@ -193,14 +221,14 @@ export default function Register() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                   placeholder="you@example.com"
                 />
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Password
                   </label>
                   <input
@@ -209,13 +237,13 @@ export default function Register() {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                     placeholder="Min. 8 characters"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Confirm Password
                   </label>
                   <input
@@ -224,7 +252,7 @@ export default function Register() {
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                     placeholder="Re-enter password"
                   />
                 </div>
@@ -232,7 +260,7 @@ export default function Register() {
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Phone
                   </label>
                   <input
@@ -240,13 +268,13 @@ export default function Register() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                     placeholder="+1 234 567 8900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Country
                   </label>
                   <input
@@ -254,14 +282,14 @@ export default function Register() {
                     name="country"
                     value={formData.country}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                     placeholder="United States"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   City
                 </label>
                 <input
@@ -269,7 +297,7 @@ export default function Register() {
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                   placeholder="New York"
                 />
               </div>
@@ -278,46 +306,46 @@ export default function Register() {
                 <input
                   type="checkbox"
                   required
-                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="mt-1 w-4 h-4 text-cyan-500 bg-slate-800 border-slate-700 rounded focus:ring-cyan-500"
                 />
-                <label className="ml-2 text-sm text-gray-600">
+                <label className="ml-2 text-sm text-slate-300">
                   I agree to the{' '}
-                  <a href="#" className="text-blue-600 hover:text-blue-700">Terms of Service</a>
+                  <a href="#" className="text-cyan-400 hover:text-cyan-300">Terms of Service</a>
                   {' '}and{' '}
-                  <a href="#" className="text-blue-600 hover:text-blue-700">Privacy Policy</a>
+                  <a href="#" className="text-cyan-400 hover:text-cyan-300">Privacy Policy</a>
                 </label>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-cyan-500 to-emerald-500 text-white py-3 rounded-lg font-bold hover:shadow-lg hover:shadow-cyan-500/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creating Account...' : 'Start Free Trial'}
               </button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-gray-600">
+            <div className="mt-6 text-center text-sm text-slate-400">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link to="/login" className="text-cyan-400 hover:text-cyan-300 font-medium">
                 Sign in
               </Link>
             </div>
           </div>
 
-          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">What happens next?</h3>
-            <ul className="space-y-2 text-sm text-gray-700">
+          <div className="mt-8 glass-effect border border-cyan-500/20 rounded-lg p-6">
+            <h3 className="font-semibold text-white mb-4">What happens next?</h3>
+            <ul className="space-y-3 text-sm text-slate-300">
               <li className="flex items-start">
-                <span className="font-bold text-blue-600 mr-2">1.</span>
+                <span className="font-bold text-cyan-400 mr-3">1.</span>
                 <span>Your 14-day free trial starts immediately</span>
               </li>
               <li className="flex items-start">
-                <span className="font-bold text-blue-600 mr-2">2.</span>
+                <span className="font-bold text-cyan-400 mr-3">2.</span>
                 <span>Set up your academy, add students, and explore features</span>
               </li>
               <li className="flex items-start">
-                <span className="font-bold text-blue-600 mr-2">3.</span>
+                <span className="font-bold text-cyan-400 mr-3">3.</span>
                 <span>Choose a plan that fits your academy when ready</span>
               </li>
             </ul>

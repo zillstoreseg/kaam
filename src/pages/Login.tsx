@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { LogIn, ArrowLeft } from 'lucide-react';
+import { Trophy, ArrowLeft } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -59,81 +59,117 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
+        }
+        @keyframes gradient-shift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .gradient-text {
+          background: linear-gradient(135deg, #06b6d4, #10b981, #06b6d4);
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: gradient-shift 3s ease infinite;
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+      `}</style>
+
       <div className="max-w-md w-full">
-        <div className="mb-4">
-          <Link to="/" className="inline-flex items-center text-gray-600 hover:text-gray-900 transition">
+        <div className="mb-6">
+          <Link to="/" className="inline-flex items-center text-slate-300 hover:text-cyan-400 transition">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Home
           </Link>
         </div>
-        <div className="bg-white rounded-lg shadow-xl p-8">
+
+        <div className="glass-effect rounded-2xl shadow-2xl p-8 border border-cyan-500/20">
           <div className="text-center mb-8">
-          {settings?.logo_url ? (
-            <img src={settings.logo_url} alt="Logo" className="h-20 mx-auto mb-4" />
-          ) : (
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-700 rounded-full mb-4">
-              <LogIn className="w-8 h-8 text-white" />
+            {settings?.logo_url ? (
+              <img src={settings.logo_url} alt="Logo" className="h-20 mx-auto mb-4" />
+            ) : (
+              <div className="flex items-center justify-center mb-6">
+                <div className="relative">
+                  <Trophy className="w-16 h-16 text-cyan-400 animate-pulse-glow" />
+                  <div className="absolute inset-0 blur-xl bg-cyan-400 opacity-50 animate-pulse-glow"></div>
+                </div>
+              </div>
+            )}
+            <h1 className="text-4xl font-bold gradient-text mb-2">
+              {settings?.academy_name || 'DOJO CLOUD'}
+            </h1>
+            <p className="text-slate-300">
+              {settings?.company_slogan || 'Sign in to your account'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                {t('auth.email')}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                placeholder="example@email.com"
+              />
             </div>
-          )}
-          <h1 className="text-3xl font-bold text-gray-900">
-            {settings?.academy_name || t('app.name')}
-          </h1>
-          <p className="text-gray-600 mt-2">
-            {settings?.company_slogan || t('app.subtitle')}
-          </p>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                {t('auth.password')}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
+                placeholder="••••••••"
+              />
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('auth.email')}
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
-              placeholder="example@email.com"
-            />
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-cyan-500 to-emerald-500 text-white py-3 rounded-lg font-bold hover:shadow-lg hover:shadow-cyan-500/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? t('common.loading') : t('auth.login')}
+            </button>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('auth.password')}
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent"
-              placeholder="••••••••"
-            />
-          </div>
+            <div className="mt-6 text-center text-sm text-slate-400">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-cyan-400 hover:text-cyan-300 font-medium transition">
+                Sign up for free
+              </Link>
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 transition disabled:opacity-50"
-          >
-            {loading ? t('common.loading') : t('auth.login')}
-          </button>
-
-          <div className="mt-4 text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-red-700 hover:text-red-800 font-medium">
-              Sign up for free
-            </Link>
-          </div>
-        </form>
+            <div className="mt-4 pt-4 border-t border-slate-700 text-center">
+              <p className="text-xs text-slate-500 mb-2">Platform Admin?</p>
+              <p className="text-xs text-slate-400">
+                Use your platform owner credentials to access admin features
+              </p>
+            </div>
+          </form>
         </div>
       </div>
     </div>
