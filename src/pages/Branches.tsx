@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Branch } from '../lib/supabase';
-import { Plus, Edit2, Trash2, X, MapPin, User } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, MapPin, User } from 'lucide-react';
 import { FeatureGate } from '../components/FeatureGate';
+import LimitsWarning from '../components/LimitsWarning';
 import { FEATURES } from '../lib/featureHelpers';
 
 interface Profile {
@@ -112,6 +113,8 @@ export default function Branches() {
   return (
     <FeatureGate featureKey={FEATURES.BRANCHES}>
     <div>
+      <LimitsWarning type="branches" />
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">{t('branches.title')}</h1>
         <button onClick={openAddModal} className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800">

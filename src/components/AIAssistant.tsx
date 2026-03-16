@@ -29,21 +29,31 @@ export default function AIAssistant() {
     setLoading(true);
 
     try {
-      const { data: academyData } = await supabase
-        .from('academies')
-        .select(`
-          *,
-          students:students(count),
-          branches:branches(count),
-          attendance:attendance(count)
-        `)
-        .eq('id', profile?.academy_id)
-        .single();
+      const academyId = profile?.academy_id;
+      if (!academyId) {
+        throw new Error('No academy found');
+      }
+
+      const [academyRes, studentsRes, attendanceRes, revenueRes] = await Promise.all([
+        supabase.from('academies').select('*, subscription_plan:subscription_plans(name)').eq('id', academyId).single(),
+        supabase.from('students').select('id, is_active').eq('academy_id', academyId),
+        supabase.from('attendance').select('attendance_date').eq('academy_id', academyId).gte('attendance_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase.from('subscription_payments').select('amount').eq('academy_id', academyId).eq('status', 'approved')
+      ]);
+
+      const activeStudents = studentsRes.data?.filter(s => s.is_active).length || 0;
+      const totalStudents = studentsRes.data?.length || 0;
+      const attendanceThisMonth = attendanceRes.data?.length || 0;
+      const totalRevenue = revenueRes.data?.reduce((sum, p) => sum + p.amount, 0) || 0;
 
       const contextData = {
-        academy: academyData,
-        question: input,
-        timestamp: new Date().toISOString(),
+        academy_name: academyRes.data?.name,
+        plan: academyRes.data?.subscription_plan?.name,
+        active_students: activeStudents,
+        total_students: totalStudents,
+        attendance_last_30_days: attendanceThisMonth,
+        total_revenue: totalRevenue,
+        avg_attendance_per_student: totalStudents > 0 ? (attendanceThisMonth / totalStudents).toFixed(1) : 0,
       };
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -57,10 +67,18 @@ export default function AIAssistant() {
           messages: [
             {
               role: 'system',
-              content: `You are an AI assistant for a martial arts academy management system called DOJO CLOUD.
-              You help academy owners understand their data and provide insights.
-              Current academy data: ${JSON.stringify(contextData)}.
-              Provide helpful, concise answers about the academy's operations, students, attendance, and revenue.`
+              content: `You are an AI assistant for DOJO CLOUD, a martial arts academy management platform.
+
+Academy Data:
+- Name: ${contextData.academy_name}
+- Plan: ${contextData.plan}
+- Active Students: ${contextData.active_students}
+- Total Students: ${contextData.total_students}
+- Attendance (last 30 days): ${contextData.attendance_last_30_days} sessions
+- Average attendance per student: ${contextData.avg_attendance_per_student}
+- Total Revenue: $${contextData.total_revenue}
+
+Provide helpful, actionable insights about student engagement, attendance trends, revenue, and growth opportunities. Be conversational and supportive. When appropriate, suggest specific actions the academy owner can take.`
             },
             ...messages.map(m => ({ role: m.role, content: m.content })),
             { role: 'user', content: input }

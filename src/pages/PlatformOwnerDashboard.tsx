@@ -75,6 +75,11 @@ export default function PlatformOwnerDashboard() {
     activeSubscriptions: 0,
     monthlyRevenue: 0,
     newAcademiesThisMonth: 0,
+    mrr: 0,
+    arr: 0,
+    churnRate: 0,
+    conversionRate: 0,
+    trialAcademies: 0,
   });
   const [academies, setAcademies] = useState<Academy[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -109,14 +114,18 @@ export default function PlatformOwnerDashboard() {
   const loadStats = async () => {
     const { data: academiesData } = await supabase
       .from('academies')
-      .select('*');
+      .select('*, subscription_plan:subscription_plans(*)');
 
     const totalAcademies = academiesData?.length || 0;
     const activeSubscriptions = academiesData?.filter(a => a.subscription_status === 'active').length || 0;
+    const trialAcademies = academiesData?.filter(a => a.subscription_status === 'trial').length || 0;
 
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
+
+    const startOfLastMonth = new Date(startOfMonth);
+    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
 
     const newAcademiesThisMonth = academiesData?.filter(
       a => new Date(a.created_at) >= startOfMonth
@@ -124,17 +133,49 @@ export default function PlatformOwnerDashboard() {
 
     const { data: paymentsData } = await supabase
       .from('subscription_payments')
-      .select('amount')
+      .select('amount, billing_period')
       .eq('status', 'approved')
       .gte('submitted_at', startOfMonth.toISOString());
 
     const monthlyRevenue = paymentsData?.reduce((sum, p) => sum + p.amount, 0) || 0;
+
+    let mrr = 0;
+    academiesData?.forEach(academy => {
+      if (academy.subscription_status === 'active' && academy.subscription_plan) {
+        mrr += academy.subscription_plan.price_monthly;
+      }
+    });
+
+    const arr = mrr * 12;
+
+    const lastMonthActive = academiesData?.filter(a =>
+      a.subscription_status === 'active' &&
+      new Date(a.subscription_start) < startOfMonth
+    ).length || 1;
+
+    const churnedThisMonth = academiesData?.filter(a =>
+      a.subscription_status === 'expired' &&
+      a.subscription_end &&
+      new Date(a.subscription_end) >= startOfMonth &&
+      new Date(a.subscription_end) < new Date()
+    ).length || 0;
+
+    const churnRate = lastMonthActive > 0 ? (churnedThisMonth / lastMonthActive) * 100 : 0;
+
+    const totalTrials = academiesData?.filter(a => new Date(a.created_at) < new Date()).length || 1;
+    const converted = academiesData?.filter(a => a.subscription_status === 'active').length || 0;
+    const conversionRate = (converted / totalTrials) * 100;
 
     setStats({
       totalAcademies,
       activeSubscriptions,
       monthlyRevenue,
       newAcademiesThisMonth,
+      mrr,
+      arr,
+      churnRate,
+      conversionRate,
+      trialAcademies,
     });
   };
 
@@ -349,6 +390,17 @@ export default function PlatformOwnerDashboard() {
                 <Settings className="w-5 h-5 mr-3" />
                 Platform Settings
               </button>
+              <button
+                onClick={() => setActiveTab('emails')}
+                className={`w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
+                  activeTab === 'emails'
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <FileText className="w-5 h-5 mr-3" />
+                Email Settings
+              </button>
             </div>
           </div>
 
@@ -356,6 +408,60 @@ export default function PlatformOwnerDashboard() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-900">Platform Overview</h2>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">MRR</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-1">${stats.mrr.toFixed(0)}</p>
+                        <p className="text-xs text-gray-500 mt-1">Monthly Recurring</p>
+                      </div>
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="w-6 h-6 text-green-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">ARR</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-1">${stats.arr.toFixed(0)}</p>
+                        <p className="text-xs text-gray-500 mt-1">Annual Recurring</p>
+                      </div>
+                      <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <DollarSign className="w-6 h-6 text-purple-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Conversion Rate</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-1">{stats.conversionRate.toFixed(1)}%</p>
+                        <p className="text-xs text-gray-500 mt-1">Trial to Paid</p>
+                      </div>
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Users className="w-6 h-6 text-blue-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Churn Rate</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-1">{stats.churnRate.toFixed(1)}%</p>
+                        <p className="text-xs text-gray-500 mt-1">This Month</p>
+                      </div>
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${stats.churnRate > 5 ? 'bg-red-100' : 'bg-green-100'}`}>
+                        <TrendingUp className={`w-6 h-6 ${stats.churnRate > 5 ? 'text-red-600' : 'text-green-600'}`} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-4 gap-6">
                   <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -734,6 +840,106 @@ export default function PlatformOwnerDashboard() {
                     placeholder="sk-..."
                     readOnly
                   />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'emails' && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-gray-900">Email Settings</h2>
+
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Configuration</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="flex items-center">
+                        <input type="checkbox" className="w-4 h-4 text-blue-600" />
+                        <span className="ml-2 text-sm font-medium text-gray-700">Enable Email Notifications</span>
+                      </label>
+                      <p className="text-sm text-gray-500 mt-1 ml-6">Send automated emails to academies</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Provider</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">SendGrid API Key</label>
+                      <input
+                        type="password"
+                        placeholder="SG.xxxxxxxxxxxx"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Get your API key from SendGrid dashboard</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">From Email</label>
+                      <input
+                        type="email"
+                        placeholder="noreply@dojocloud.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">From Name</label>
+                      <input
+                        type="text"
+                        placeholder="DOJO CLOUD"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Triggers</h3>
+                  <div className="space-y-3">
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Welcome email on registration</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Trial reminder (7 days before)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Trial reminder (3 days before)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Trial reminder (1 day before)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Trial expired notification</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Payment received confirmation</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Payment approved notification</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="w-4 h-4 text-blue-600" defaultChecked />
+                      <span className="ml-2 text-sm text-gray-700">Subscription expiring (7 days before)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">How to Set Up Email</h4>
+                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Sign up for SendGrid (free tier available)</li>
+                    <li>Create an API key in SendGrid dashboard</li>
+                    <li>Add the API key above</li>
+                    <li>Configure your from email and name</li>
+                    <li>Enable email notifications</li>
+                    <li>Test by registering a new academy</li>
+                  </ol>
                 </div>
               </div>
             )}

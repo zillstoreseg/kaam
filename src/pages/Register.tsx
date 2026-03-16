@@ -76,7 +76,9 @@ export default function Register() {
           .update({
             academy_id: academy.id,
             platform_role: 'academy_admin',
+            role: 'super_admin',
             full_name: formData.ownerName,
+            email: formData.email,
           })
           .eq('id', authData.user.id);
 
@@ -93,7 +95,16 @@ export default function Register() {
 
         if (settingsError) console.error('Settings creation failed:', settingsError);
 
-        navigate('/');
+        await supabase
+          .from('branches')
+          .insert({
+            academy_id: academy.id,
+            name: 'Main Branch',
+            location: formData.city || 'Main Location',
+            is_active: true,
+          });
+
+        navigate('/dashboard');
       }
     } catch (err: any) {
       console.error('Registration error:', err);

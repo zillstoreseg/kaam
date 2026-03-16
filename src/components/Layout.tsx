@@ -6,6 +6,7 @@ import { usePlatform } from '../contexts/PlatformContext';
 import { supabase, Settings as SettingsType, RolePermission, PageName } from '../lib/supabase';
 import ImpersonationBanner from './ImpersonationBanner';
 import AIAssistant from './AIAssistant';
+import SubscriptionGate from './SubscriptionGate';
 import {
   LayoutDashboard,
   Users,
@@ -139,6 +140,8 @@ export default function Layout() {
 
   function canViewPage(page: PageName): boolean {
     if (profile?.role === 'super_admin') return true;
+    if (profile?.platform_role === 'academy_admin') return true;
+    if (permissions.length === 0) return true;
     const permission = permissions.find(p => p.page === page);
     return permission?.can_view || false;
   }
@@ -344,7 +347,9 @@ export default function Layout() {
         </header>
 
         <main className="p-4 lg:p-8">
-          <Outlet />
+          <SubscriptionGate>
+            <Outlet />
+          </SubscriptionGate>
         </main>
       </div>
 

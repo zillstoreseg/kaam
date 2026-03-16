@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Student, Branch, Package as PackageType, Settings as SettingsType, Scheme, BeltRank } from '../lib/supabase';
-import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, Edit2, Trash2, Upload, Image as ImageIcon, Award, Activity } from 'lucide-react';
+import { Search, Plus, X, Snowflake, Play, RefreshCw, FileText, CreditCard as Edit2, Trash2, Upload, Image as ImageIcon, Award, Activity } from 'lucide-react';
 import InvoiceModal from '../components/InvoiceModal';
 import SearchableSelect from '../components/SearchableSelect';
+import LimitsWarning from '../components/LimitsWarning';
 import { nationalities } from '../data/nationalities';
 import { logAudit, AuditActions, AuditEntityTypes, getChangedFields } from '../lib/auditLogger';
 
@@ -751,6 +752,8 @@ export default function Students() {
 
   return (
     <div>
+      <LimitsWarning type="students" />
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">{t('students.title')}</h1>
         <button
