@@ -196,13 +196,13 @@ export default function LandingPage() {
             <div className="text-left space-y-8">
               <h1 className="text-5xl md:text-7xl font-bold leading-tight">
                 <span className="gradient-text">
-                  {content.hero?.headline || 'Transform Your Dojo'}
+                  Transform Your Dojo
                 </span>
                 <br />
                 <span className="text-white">Into a Digital Powerhouse</span>
               </h1>
               <p className="text-xl md:text-2xl text-slate-300 leading-relaxed">
-                {content.hero?.subheadline || 'The all-in-one cloud platform for modern martial arts academies. Manage students, track progress, and grow your business seamlessly.'}
+                The all-in-one cloud platform for modern martial arts academies. Manage students, track progress, and grow your business seamlessly.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
@@ -210,7 +210,7 @@ export default function LandingPage() {
                   className="group relative overflow-hidden bg-gradient-to-r from-cyan-500 to-emerald-500 text-white px-8 py-4 rounded-xl text-lg font-bold shadow-2xl shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all inline-flex items-center justify-center"
                 >
                   <span className="relative z-10 flex items-center">
-                    {content.hero?.cta_primary || 'Start Free Trial'}
+                    Start Free Trial
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -435,13 +435,20 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-5xl md:text-6xl font-bold mb-6">
-              <span className="gradient-text">{content.faq?.title || 'FAQ'}</span>
+              <span className="gradient-text">Frequently Asked</span>
             </h2>
             <p className="text-xl text-slate-300">Everything you need to know</p>
           </div>
 
           <div className="space-y-4">
-            {(content.faq?.questions || []).map((item, index) => (
+            {[
+              { question: 'How long is the free trial?', answer: 'Your free trial lasts 14 days with full access to all features. No credit card required to start.' },
+              { question: 'Can I manage multiple branches?', answer: 'Yes! Our Professional and Enterprise plans support multiple branches. Each branch can have its own manager, students, and schedules.' },
+              { question: 'Is my data secure?', answer: 'Absolutely. We use bank-grade encryption and store all data on secure cloud servers. Daily backups ensure your data is always safe.' },
+              { question: 'Can I import my existing student data?', answer: 'Yes, we support CSV import for student records. Our support team will help you migrate your existing data at no extra cost.' },
+              { question: 'What payment methods do you accept?', answer: 'We accept all major credit cards, bank transfers, and various regional payment methods.' },
+              { question: 'Can I cancel anytime?', answer: 'Yes, you can cancel your subscription at any time. There are no long-term contracts or cancellation fees.' },
+            ].map((item, index) => (
               <div key={index} className="glass-effect rounded-2xl overflow-hidden card-hover">
                 <button
                   onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
