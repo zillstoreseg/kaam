@@ -47,9 +47,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isOwner, loading: platformLoading } = usePlatform();
 
-  if (loading) {
+  if (authLoading || (user && platformLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-600">Loading...</div>
@@ -58,7 +59,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" />;
+    return <Navigate to={isOwner ? '/platform-admin' : '/dashboard'} />;
   }
 
   return <>{children}</>;

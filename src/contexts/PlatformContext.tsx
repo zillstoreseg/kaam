@@ -60,8 +60,13 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     checkPlatformRole();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      checkPlatformRole();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setIsOwner(false);
+        setLoading(false);
+      } else {
+        checkPlatformRole();
+      }
     });
 
     return () => subscription.unsubscribe();

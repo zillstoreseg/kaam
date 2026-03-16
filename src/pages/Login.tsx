@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { usePlatform } from '../contexts/PlatformContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
 import { Trophy, ArrowLeft } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export default function Login() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const { signIn } = useAuth();
   const { t } = useLanguage();
+  const { checkPlatformRole } = usePlatform();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,6 +52,8 @@ export default function Login() {
           profileRes.data?.role === 'platform_owner' ||
           platformRoleRes.data?.role === 'owner' ||
           platformRoleRes.data?.role === 'super_owner';
+
+        await checkPlatformRole();
 
         if (isPlatformOwner) {
           navigate('/platform-admin');
