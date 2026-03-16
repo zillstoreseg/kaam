@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, Settings as SettingsType } from '../lib/supabase';
-import { LogIn } from 'lucide-react';
+import { LogIn, ArrowLeft } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -39,30 +39,36 @@ export default function Login() {
       setError(signInError.message);
       setLoading(false);
     } else {
-      // Check if user is platform owner and redirect accordingly
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('platform_role')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (profile?.role === 'platform_owner') {
-          navigate('/admin/tenants');
+        if (profile?.platform_role === 'platform_owner') {
+          navigate('/platform-admin');
         } else {
-          navigate('/');
+          navigate('/dashboard');
         }
       } else {
-        navigate('/');
+        navigate('/dashboard');
       }
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
-        <div className="text-center mb-8">
+      <div className="max-w-md w-full">
+        <div className="mb-4">
+          <Link to="/" className="inline-flex items-center text-gray-600 hover:text-gray-900 transition">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Link>
+        </div>
+        <div className="bg-white rounded-lg shadow-xl p-8">
+          <div className="text-center mb-8">
           {settings?.logo_url ? (
             <img src={settings.logo_url} alt="Logo" className="h-20 mx-auto mb-4" />
           ) : (
@@ -120,7 +126,15 @@ export default function Login() {
           >
             {loading ? t('common.loading') : t('auth.login')}
           </button>
+
+          <div className="mt-4 text-center text-sm text-gray-600">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-red-700 hover:text-red-800 font-medium">
+              Sign up for free
+            </Link>
+          </div>
         </form>
+        </div>
       </div>
     </div>
   );

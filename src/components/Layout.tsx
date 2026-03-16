@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { usePlatform } from '../contexts/PlatformContext';
 import { supabase, Settings as SettingsType, RolePermission, PageName } from '../lib/supabase';
 import ImpersonationBanner from './ImpersonationBanner';
+import AIAssistant from './AIAssistant';
 import {
   LayoutDashboard,
   Users,
@@ -31,6 +32,7 @@ import {
   History,
   AlertTriangle,
   Crown,
+  CreditCard,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -154,32 +156,33 @@ export default function Layout() {
   }, [langMenuOpen]);
 
   const baseNavigation = [
-    { name: t('nav.dashboard'), href: '/', icon: LayoutDashboard, page: 'dashboard' as PageName },
-    { name: t('nav.students'), href: '/students', icon: Users, page: 'students' as PageName },
-    { name: t('nav.attendance'), href: '/attendance', icon: ClipboardCheck, page: 'attendance' as PageName },
-    { name: t('nav.packages'), href: '/packages', icon: Package, page: 'packages' as PageName },
-    { name: t('nav.branches'), href: '/branches', icon: Building2, page: 'branches' as PageName },
-    { name: t('nav.schemes'), href: '/schemes', icon: Award, page: 'schemes' as PageName },
-    { name: t('nav.stock'), href: '/stock', icon: ShoppingBag, page: 'stock' as PageName },
-    { name: t('nav.stockInventory'), href: '/stock-inventory', icon: ClipboardList, page: 'stock' as PageName },
-    { name: t('nav.sales'), href: '/sales', icon: Receipt, page: 'sales' as PageName },
-    { name: t('nav.invoices'), href: '/invoices', icon: FileText, page: 'invoices' as PageName },
-    { name: 'Revenue Reports', href: '/revenue-reports', icon: DollarSign, page: 'reports' as PageName },
-    { name: 'Exam Eligibility', href: '/exam-eligibility', icon: GraduationCap, page: 'reports' as PageName },
-    { name: 'Attendance Reports', href: '/attendance-reports', icon: BarChart3, page: 'reports' as PageName },
-    { name: 'Expenses', href: '/expenses', icon: DollarSign, page: 'reports' as PageName },
-    { name: t('nav.reports'), href: '/reports', icon: FileText, page: 'reports' as PageName },
+    { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard, page: 'dashboard' as PageName },
+    { name: t('nav.students'), href: '/dashboard/students', icon: Users, page: 'students' as PageName },
+    { name: t('nav.attendance'), href: '/dashboard/attendance', icon: ClipboardCheck, page: 'attendance' as PageName },
+    { name: t('nav.packages'), href: '/dashboard/packages', icon: Package, page: 'packages' as PageName },
+    { name: t('nav.branches'), href: '/dashboard/branches', icon: Building2, page: 'branches' as PageName },
+    { name: t('nav.schemes'), href: '/dashboard/schemes', icon: Award, page: 'schemes' as PageName },
+    { name: t('nav.stock'), href: '/dashboard/stock', icon: ShoppingBag, page: 'stock' as PageName },
+    { name: t('nav.stockInventory'), href: '/dashboard/stock-inventory', icon: ClipboardList, page: 'stock' as PageName },
+    { name: t('nav.sales'), href: '/dashboard/sales', icon: Receipt, page: 'sales' as PageName },
+    { name: t('nav.invoices'), href: '/dashboard/invoices', icon: FileText, page: 'invoices' as PageName },
+    { name: 'Revenue Reports', href: '/dashboard/revenue-reports', icon: DollarSign, page: 'reports' as PageName },
+    { name: 'Exam Eligibility', href: '/dashboard/exam-eligibility', icon: GraduationCap, page: 'reports' as PageName },
+    { name: 'Attendance Reports', href: '/dashboard/attendance-reports', icon: BarChart3, page: 'reports' as PageName },
+    { name: 'Expenses', href: '/dashboard/expenses', icon: DollarSign, page: 'reports' as PageName },
+    { name: t('nav.reports'), href: '/dashboard/reports', icon: FileText, page: 'reports' as PageName },
   ];
 
   const securityNavigation = [
-    { name: 'Activity Log', href: '/activity-log', icon: Activity, page: 'reports' as PageName },
-    { name: 'Login History', href: '/login-history', icon: History, page: 'reports' as PageName },
-    { name: 'Security Alerts', href: '/security-alerts', icon: AlertTriangle, page: 'reports' as PageName },
+    { name: 'Activity Log', href: '/dashboard/activity-log', icon: Activity, page: 'reports' as PageName },
+    { name: 'Login History', href: '/dashboard/login-history', icon: History, page: 'reports' as PageName },
+    { name: 'Security Alerts', href: '/dashboard/security-alerts', icon: AlertTriangle, page: 'reports' as PageName },
   ];
 
   const adminNavigation = [
-    { name: t('nav.users'), href: '/users', icon: UserCog, page: 'users' as PageName },
-    { name: t('nav.settings'), href: '/settings', icon: Settings, page: 'settings' as PageName },
+    { name: t('nav.users'), href: '/dashboard/users', icon: UserCog, page: 'users' as PageName },
+    { name: t('nav.settings'), href: '/dashboard/settings', icon: Settings, page: 'settings' as PageName },
+    { name: 'Subscription', href: '/dashboard/subscription', icon: CreditCard, page: 'settings' as PageName },
   ];
 
   const isAdmin = profile?.role === 'super_admin' || profile?.role === 'branch_manager';
@@ -194,7 +197,7 @@ export default function Layout() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   const languages = [
@@ -296,7 +299,7 @@ export default function Layout() {
 
             {settings?.enable_inactive_alerts && (
               <button
-                onClick={() => navigate('/inactive-players')}
+                onClick={() => navigate('/dashboard/inactive-players')}
                 className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition mr-2"
                 title="Inactive Players"
               >
@@ -351,6 +354,8 @@ export default function Layout() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      <AIAssistant />
     </div>
   );
 }

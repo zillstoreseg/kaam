@@ -4,6 +4,8 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { PlatformProvider, usePlatform } from './contexts/PlatformContext';
 import { TenantProvider } from './contexts/TenantContext';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
+import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
@@ -27,7 +29,8 @@ import InactivePlayers from './pages/InactivePlayers';
 import ActivityLog from './pages/ActivityLog';
 import LoginHistory from './pages/LoginHistory';
 import SecurityAlerts from './pages/SecurityAlerts';
-import PlatformAdmin from './pages/PlatformAdmin';
+import PlatformOwnerDashboard from './pages/PlatformOwnerDashboard';
+import AcademySubscription from './pages/AcademySubscription';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -40,7 +43,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  return user ? <>{children}</> : <Navigate to="/" />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -55,7 +58,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/dashboard" />;
   }
 
   return <>{children}</>;
@@ -74,7 +77,7 @@ function PlatformOwnerRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/" />;
   }
 
   if (!isOwner) {
@@ -102,6 +105,15 @@ function App() {
           <PlatformProvider>
             <TenantProvider>
               <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route
+                  path="/register"
+                  element={
+                    <PublicRoute>
+                      <Register />
+                    </PublicRoute>
+                  }
+                />
                 <Route
                   path="/login"
                   element={
@@ -122,12 +134,12 @@ function App() {
                   path="/platform-admin"
                   element={
                     <PlatformOwnerRoute>
-                      <PlatformAdmin />
+                      <PlatformOwnerDashboard />
                     </PlatformOwnerRoute>
                   }
                 />
                 <Route
-                  path="/"
+                  path="/dashboard"
                   element={
                     <PrivateRoute>
                       <Layout />
@@ -155,6 +167,7 @@ function App() {
                   <Route path="security-alerts" element={<SecurityAlerts />} />
                   <Route path="users" element={<Users />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="subscription" element={<AcademySubscription />} />
                 </Route>
               </Routes>
             </TenantProvider>
