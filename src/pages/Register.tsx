@@ -104,7 +104,9 @@ export default function Register() {
             is_active: true,
           });
 
-        navigate('/dashboard');
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 500);
       }
     } catch (err: any) {
       console.error('Registration error:', err);

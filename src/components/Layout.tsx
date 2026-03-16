@@ -64,7 +64,9 @@ export default function Layout() {
 
   async function loadSettings() {
     try {
-      const { data } = await supabase.from('settings').select('*').maybeSingle();
+      if (!profile?.academy_id) return;
+
+      const { data } = await supabase.from('settings').select('*').eq('academy_id', profile.academy_id).maybeSingle();
       if (data) setSettings(data as SettingsType);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -72,7 +74,7 @@ export default function Layout() {
   }
 
   async function loadInactiveCount() {
-    if (!settings || !settings.enable_inactive_alerts) return;
+    if (!settings || !settings.enable_inactive_alerts || !profile?.academy_id) return;
 
     try {
       const thresholdDays = settings.inactive_threshold_days || 14;
@@ -82,6 +84,7 @@ export default function Layout() {
       let studentsQuery = supabase
         .from('students')
         .select('id, created_at')
+        .eq('academy_id', profile.academy_id)
         .eq('is_active', true);
 
       if (profile?.role === 'branch_manager' && profile?.branch_id) {
@@ -123,13 +126,14 @@ export default function Layout() {
   }
 
   async function loadPermissions() {
-    if (!profile?.role) return;
+    if (!profile?.role || !profile?.academy_id) return;
 
     try {
       const { data, error } = await supabase
         .from('role_permissions')
         .select('*')
-        .eq('role', profile.role);
+        .eq('role', profile.role)
+        .eq('academy_id', profile.academy_id);
 
       if (error) throw error;
       setPermissions((data as RolePermission[]) || []);
@@ -342,6 +346,23 @@ export default function Layout() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="hidden md:flex items-center gap-4 ml-4 pl-4 border-l">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'Loading...'}</p>
+                <p className="text-xs text-gray-600">
+                  {profile?.role ? t(`role.${profile.role}`) : '...'}
+                </p>
+              </div>
+              <button
+                onClick={signOut}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden lg:inline">Logout</span>
+              </button>
             </div>
           </div>
         </header>
