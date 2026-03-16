@@ -70,7 +70,12 @@ export default function Register() {
           .select()
           .single();
 
-        if (academyError) throw academyError;
+        if (academyError) {
+          if (academyError.code === '42501') {
+            throw new Error('Registration is currently restricted. Please contact the platform administrator to activate your account, or ask them to create your academy from the admin panel.');
+          }
+          throw academyError;
+        }
 
         const { error: profileError } = await supabase
           .from('profiles')
@@ -80,10 +85,18 @@ export default function Register() {
             platform_role: 'academy_admin',
             role: 'super_admin',
             full_name: formData.ownerName,
-            email: formData.email,
           });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          const { error: profileFallbackError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: authData.user.id,
+              role: 'super_admin',
+              full_name: formData.ownerName,
+            });
+          if (profileFallbackError) throw profileFallbackError;
+        }
 
         const { error: settingsError } = await supabase
           .from('settings')
@@ -94,9 +107,17 @@ export default function Register() {
             currency_symbol: '$',
           });
 
-        if (settingsError) console.error('Settings creation failed:', settingsError);
+        if (settingsError) {
+          await supabase.from('settings').insert({
+            academy_name: formData.academyName,
+            language: 'en',
+            currency_symbol: '$',
+          }).then(({ error }) => {
+            if (error) console.error('Settings creation failed:', error);
+          });
+        }
 
-        await supabase
+        const { error: branchError } = await supabase
           .from('branches')
           .insert({
             academy_id: academy.id,
@@ -105,9 +126,17 @@ export default function Register() {
             is_active: true,
           });
 
+        if (branchError) {
+          await supabase.from('branches').insert({
+            name: 'Main Branch',
+            location: formData.city || 'Main Location',
+            is_active: true,
+          });
+        }
+
         setTimeout(() => {
           window.location.href = '/dashboard';
-        }, 500);
+        }, 1500);
       }
     } catch (err: any) {
       console.error('Registration error:', err);

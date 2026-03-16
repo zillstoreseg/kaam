@@ -217,11 +217,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!profile) {
-      console.log('Profile not ready:', profile);
       setLoading(false);
       return;
     }
-
+    const safetyTimeout = setTimeout(() => setLoading(false), 10000);
     loadStats();
     loadAlerts();
     loadReferralData();
@@ -230,7 +229,8 @@ export default function Dashboard() {
     loadMedicalStats();
     loadMonthlyExpenses();
     loadInactivePlayersCount();
-  }, [profile]);
+    return () => clearTimeout(safetyTimeout);
+  }, [profile?.id]);
 
   async function loadStats() {
     try {
