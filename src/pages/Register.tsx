@@ -53,18 +53,19 @@ export default function Register() {
         const trialEndsAt = new Date();
         trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
+        const domainSlug = formData.academyName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
+
         const { data: academy, error: academyError } = await supabase
           .from('academies')
           .insert({
             name: formData.academyName,
-            owner_name: formData.ownerName,
-            email: formData.email,
-            phone: formData.phone,
-            country: formData.country,
-            city: formData.city,
+            domain: domainSlug,
+            status: 'active',
             subscription_status: 'trial',
-            trial_ends_at: trialEndsAt.toISOString(),
-            is_active: true,
+            expires_at: trialEndsAt.toISOString(),
           })
           .select()
           .single();

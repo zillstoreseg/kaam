@@ -4,39 +4,6 @@ import {
   Users, CalendarCheck, Trophy, DollarSign, BarChart, Sparkles,
   Check, Menu, X, ChevronRight, ArrowRight, Shield, Zap, Globe
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-
-interface LandingContent {
-  hero?: {
-    headline: string;
-    subheadline: string;
-    cta_primary: string;
-    cta_secondary: string;
-  };
-  features?: {
-    title: string;
-    features: Array<{
-      title: string;
-      description: string;
-      icon: string;
-    }>;
-  };
-  how_it_works?: {
-    title: string;
-    steps: Array<{
-      number: number;
-      title: string;
-      description: string;
-    }>;
-  };
-  faq?: {
-    title: string;
-    questions: Array<{
-      question: string;
-      answer: string;
-    }>;
-  };
-}
 
 interface SubscriptionPlan {
   id: string;
@@ -51,17 +18,7 @@ interface SubscriptionPlan {
   display_order: number;
 }
 
-const iconMap: Record<string, any> = {
-  users: Users,
-  'calendar-check': CalendarCheck,
-  trophy: Trophy,
-  'dollar-sign': DollarSign,
-  'bar-chart': BarChart,
-  sparkles: Sparkles,
-};
-
 export default function LandingPage() {
-  const [content, setContent] = useState<LandingContent>({});
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -69,8 +26,44 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    loadContent();
-    loadPlans();
+    setPlans([
+      {
+        id: '1',
+        name: 'Starter',
+        description: 'Perfect for small academies just getting started',
+        price_monthly: 29,
+        price_yearly: 290,
+        currency: 'USD',
+        max_students: 50,
+        max_branches: 1,
+        features: ['Student Management', 'Attendance Tracking', 'Basic Reports', 'Email Support'],
+        display_order: 1
+      },
+      {
+        id: '2',
+        name: 'Professional',
+        description: 'For growing academies with multiple programs',
+        price_monthly: 79,
+        price_yearly: 790,
+        currency: 'USD',
+        max_students: 200,
+        max_branches: 3,
+        features: ['Everything in Starter', 'Multiple Branches', 'Advanced Reports', 'Belt Tracking', 'Invoicing', 'Priority Support'],
+        display_order: 2
+      },
+      {
+        id: '3',
+        name: 'Enterprise',
+        description: 'Full-featured solution for large academies',
+        price_monthly: 149,
+        price_yearly: 1490,
+        currency: 'USD',
+        max_students: 1000,
+        max_branches: 10,
+        features: ['Everything in Professional', 'Unlimited Branches', 'Custom Reports', 'API Access', 'White Label', 'Dedicated Support'],
+        display_order: 3
+      }
+    ]);
 
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -79,34 +72,6 @@ export default function LandingPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const loadContent = async () => {
-    const { data } = await supabase
-      .from('landing_page_content')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order');
-
-    if (data) {
-      const contentObj: LandingContent = {};
-      data.forEach(item => {
-        contentObj[item.section as keyof LandingContent] = item.content;
-      });
-      setContent(contentObj);
-    }
-  };
-
-  const loadPlans = async () => {
-    const { data } = await supabase
-      .from('subscription_plans')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order');
-
-    if (data) {
-      setPlans(data);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
