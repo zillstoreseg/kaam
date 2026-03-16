@@ -15,27 +15,40 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const checkPlatformRole = async () => {
     try {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
 
-      if (!session.session) {
+      if (!session) {
         setIsOwner(false);
         setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase.rpc('get_my_platform_role');
+      const { data: platformRole } = await supabase
+        .from('platform_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
 
-      if (error) {
-        if (error.message?.includes('function') || error.code === '42883') {
-          console.warn('Platform owner features not available - SaaS layer not enabled');
-          setIsOwner(false);
-        } else {
-          console.error('Error checking platform role:', error);
-          setIsOwner(false);
-        }
-      } else {
-        setIsOwner(data?.role === 'owner' || data?.role === 'super_owner');
+      if (platformRole?.role === 'owner' || platformRole?.role === 'super_owner') {
+        setIsOwner(true);
+        setLoading(false);
+        return;
       }
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profileData?.role === 'platform_owner') {
+        setIsOwner(true);
+        setLoading(false);
+        return;
+      }
+
+      setIsOwner(false);
     } catch (error) {
       console.error('Error in checkPlatformRole:', error);
       setIsOwner(false);
@@ -46,6 +59,12 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     checkPlatformRole();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkPlatformRole();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return (

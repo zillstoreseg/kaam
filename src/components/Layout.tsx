@@ -64,9 +64,11 @@ export default function Layout() {
 
   async function loadSettings() {
     try {
-      if (!profile?.academy_id) return;
-
-      const { data } = await supabase.from('settings').select('*').eq('academy_id', profile.academy_id).maybeSingle();
+      if (!profile) return;
+      const query = profile.academy_id
+        ? supabase.from('settings').select('*').eq('academy_id', profile.academy_id).maybeSingle()
+        : supabase.from('settings').select('*').maybeSingle();
+      const { data } = await query;
       if (data) setSettings(data as SettingsType);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -74,19 +76,19 @@ export default function Layout() {
   }
 
   async function loadInactiveCount() {
-    if (!settings || !settings.enable_inactive_alerts || !profile?.academy_id) return;
+    if (!settings || !settings.enable_inactive_alerts) return;
 
     try {
       const thresholdDays = settings.inactive_threshold_days || 14;
-      const thresholdDate = new Date();
-      thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
 
       let studentsQuery = supabase
         .from('students')
         .select('id, created_at')
-        .eq('academy_id', profile.academy_id)
         .eq('is_active', true);
 
+      if (profile?.academy_id) {
+        studentsQuery = studentsQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role === 'branch_manager' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
@@ -95,6 +97,8 @@ export default function Layout() {
       if (!students) return;
 
       const studentIds = students.map(s => s.id);
+      if (studentIds.length === 0) return;
+
       const { data: attendanceData } = await supabase
         .from('attendance')
         .select('student_id, attendance_date')
@@ -113,10 +117,7 @@ export default function Layout() {
         const lastAttendance = lastAttendanceMap[student.id];
         const referenceDate = lastAttendance ? new Date(lastAttendance) : new Date(student.created_at);
         const daysAbsent = Math.floor((Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        if (daysAbsent >= thresholdDays) {
-          count++;
-        }
+        if (daysAbsent >= thresholdDays) count++;
       });
 
       setInactiveCount(count);
@@ -126,15 +127,13 @@ export default function Layout() {
   }
 
   async function loadPermissions() {
-    if (!profile?.role || !profile?.academy_id) return;
+    if (!profile?.role) return;
 
     try {
       const { data, error } = await supabase
         .from('role_permissions')
         .select('*')
-        .eq('role', profile.role)
-        .eq('academy_id', profile.academy_id);
-
+        .eq('role', profile.role);
       if (error) throw error;
       setPermissions((data as RolePermission[]) || []);
     } catch (error) {

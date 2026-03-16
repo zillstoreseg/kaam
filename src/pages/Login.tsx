@@ -41,13 +41,17 @@ export default function Login() {
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('platform_role')
-          .eq('id', user.id)
-          .maybeSingle();
+        const [profileRes, platformRoleRes] = await Promise.all([
+          supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+          supabase.from('platform_roles').select('role').eq('user_id', user.id).maybeSingle(),
+        ]);
 
-        if (profile?.platform_role === 'platform_owner') {
+        const isPlatformOwner =
+          profileRes.data?.role === 'platform_owner' ||
+          platformRoleRes.data?.role === 'owner' ||
+          platformRoleRes.data?.role === 'super_owner';
+
+        if (isPlatformOwner) {
           navigate('/platform-admin');
         } else {
           navigate('/dashboard');

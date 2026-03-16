@@ -83,11 +83,12 @@ function PlatformOwnerRoute({ children }: { children: React.ReactNode }) {
   if (!isOwner) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
-          <p className="text-xl text-gray-600 mb-4">Page Not Found</p>
-          <a href="/" className="text-blue-600 hover:text-blue-800">
-            Return to Dashboard
+        <div className="text-center max-w-md">
+          <h1 className="text-4xl font-bold text-gray-300 mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-2">This page requires platform owner privileges.</p>
+          <p className="text-sm text-gray-500 mb-6">If you are the platform owner, your account may not have the owner role assigned yet.</p>
+          <a href="/dashboard" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+            Go to Dashboard
           </a>
         </div>
       </div>
