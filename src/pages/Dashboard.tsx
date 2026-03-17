@@ -214,6 +214,7 @@ export default function Dashboard() {
   const [medicalStats, setMedicalStats] = useState({ withCondition: 0, withoutCondition: 0 });
   const [monthlyExpenses, setMonthlyExpenses] = useState({ total: 0, count: 0 });
   const [inactivePlayersCount, setInactivePlayersCount] = useState(0);
+  const [academyInfo, setAcademyInfo] = useState<{ name: string; subscription_status: string; expires_at: string | null; plan: { name: string; price_monthly: number } | null } | null>(null);
 
   useEffect(() => {
     if (!profile) {
@@ -229,6 +230,7 @@ export default function Dashboard() {
     loadMedicalStats();
     loadMonthlyExpenses();
     loadInactivePlayersCount();
+    if (profile?.academy_id) loadAcademyInfo();
     return () => clearTimeout(safetyTimeout);
   }, [profile?.id]);
 
@@ -516,6 +518,20 @@ export default function Dashboard() {
     }
   }
 
+  async function loadAcademyInfo() {
+    if (!profile?.academy_id) return;
+    try {
+      const { data } = await supabase
+        .from('academies')
+        .select('name, subscription_status, expires_at, plan:plans(name, price_monthly)')
+        .eq('id', profile.academy_id)
+        .maybeSingle();
+      if (data) setAcademyInfo(data as any);
+    } catch (err) {
+      console.error('Error loading academy info:', err);
+    }
+  }
+
   async function loadAlerts() {
     try {
       const { data, error } = await supabase
@@ -605,11 +621,61 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mb-8 flex items-start justify-between gap-6">
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-start gap-6">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">{t('nav.dashboard')}</h1>
-          <p className="text-gray-600 mt-1">{t('dashboard.welcome')}, {profile?.full_name}</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {t('dashboard.welcome')}, {profile?.full_name} <span>👋</span>
+          </h1>
+          {academyInfo && (
+            <p className="text-lg text-red-700 font-semibold mt-1">{academyInfo.name}</p>
+          )}
+          <p className="text-gray-500 mt-1 text-sm">{t('nav.dashboard')}</p>
         </div>
+
+        {academyInfo && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 w-full lg:w-80 flex-shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Plan</p>
+                <p className="text-lg font-bold text-gray-900 mt-0.5">{academyInfo.plan?.name || 'No Plan'}</p>
+                {academyInfo.plan && (
+                  <p className="text-sm text-gray-500">${academyInfo.plan.price_monthly}/month</p>
+                )}
+              </div>
+              <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
+                academyInfo.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
+                academyInfo.subscription_status === 'trial' ? 'bg-blue-100 text-blue-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                {academyInfo.subscription_status === 'active' ? 'Active' :
+                 academyInfo.subscription_status === 'trial' ? 'Trial' : 'Expired'}
+              </span>
+            </div>
+            {academyInfo.expires_at && (() => {
+              const days = Math.ceil((new Date(academyInfo.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              const pct = Math.max(0, Math.min(100, (days / 30) * 100));
+              return (
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-xs text-gray-500">Expiry</span>
+                    <span className={`text-xs font-semibold ${days < 7 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {days > 0 ? `${days} days left` : 'Expired'}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${pct > 50 ? 'bg-green-500' : pct > 20 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Renews {new Date(academyInfo.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {alerts.length > 0 && (

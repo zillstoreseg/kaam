@@ -94,18 +94,35 @@ export default function Students() {
     try {
       let studentsQuery = supabase.from('students').select('*, branch:branches(*), package:packages(*), scheme:schemes(*), referred_by:students!referred_by_student_id(id, full_name)').order('created_at', { ascending: false });
 
+      if (profile?.academy_id) {
+        studentsQuery = studentsQuery.eq('academy_id', profile.academy_id);
+      }
       if (profile?.role !== 'super_admin' && profile?.branch_id) {
         studentsQuery = studentsQuery.eq('branch_id', profile.branch_id);
       }
 
+      let branchesQuery = supabase.from('branches').select('*').order('name');
+      let packagesQuery = supabase.from('packages').select('*').order('name');
+      let schemesQuery = supabase.from('schemes').select('*').order('name');
+      let allStudentsQuery = supabase.from('students').select('id, full_name').order('full_name');
+      let settingsQuery = supabase.from('settings').select('*');
+
+      if (profile?.academy_id) {
+        branchesQuery = branchesQuery.eq('academy_id', profile.academy_id) as typeof branchesQuery;
+        packagesQuery = packagesQuery.eq('academy_id', profile.academy_id) as typeof packagesQuery;
+        schemesQuery = schemesQuery.eq('academy_id', profile.academy_id) as typeof schemesQuery;
+        allStudentsQuery = allStudentsQuery.eq('academy_id', profile.academy_id) as typeof allStudentsQuery;
+        settingsQuery = settingsQuery.eq('academy_id', profile.academy_id);
+      }
+
       const [studentsRes, branchesRes, packagesRes, schemesRes, beltRanksRes, allStudentsRes, settingsRes] = await Promise.all([
         studentsQuery,
-        supabase.from('branches').select('*').order('name'),
-        supabase.from('packages').select('*').order('name'),
-        supabase.from('schemes').select('*').order('name'),
+        branchesQuery,
+        packagesQuery,
+        schemesQuery,
         supabase.from('belt_ranks').select('*').order('belt_order'),
-        supabase.from('students').select('id, full_name').order('full_name'),
-        supabase.from('settings').select('*').maybeSingle(),
+        allStudentsQuery,
+        settingsQuery.maybeSingle(),
       ]);
 
       if (studentsRes.data) setStudents(studentsRes.data as StudentWithDetails[]);
