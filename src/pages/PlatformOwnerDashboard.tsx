@@ -1311,7 +1311,7 @@ ALTER TABLE academies ADD COLUMN IF NOT EXISTS city text;`;
               <button onClick={() => setShowSqlModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600">Copy the SQL below and run it in your <strong>Supabase SQL Editor</strong> at <a href="https://supabase.com/dashboard" target=\"_blank" rel="noreferrer\" className="text-blue-600 hover:underline">supabase.com/dashboard</a>.</p>
+              <p className="text-sm text-gray-600">Copy the SQL below and run it in your <strong>Supabase SQL Editor</strong> at <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">supabase.com/dashboard</a>.</p>
               <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 whitespace-pre-wrap overflow-x-auto">
                 {MIGRATION_SQL}
               </div>
