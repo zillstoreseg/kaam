@@ -33,6 +33,11 @@ interface Academy {
   subscription_status: string;
   expires_at: string | null;
   created_at: string;
+  owner_name: string | null;
+  owner_email: string | null;
+  phone: string | null;
+  country: string | null;
+  city: string | null;
   plan?: { name: string; price_monthly: number };
 }
 
@@ -114,6 +119,12 @@ export default function PlatformOwnerDashboard() {
   const [selectedAcademyForFeatures, setSelectedAcademyForFeatures] = useState<Academy | null>(null);
   const [searchAcademies, setSearchAcademies] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [academyView, setAcademyView] = useState<'table' | 'cards'>('cards');
+  const [selectedAcademyDetail, setSelectedAcademyDetail] = useState<Academy | null>(null);
+  const [runningMigration, setRunningMigration] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<string | null>(null);
+  const [schemaReady, setSchemaReady] = useState<boolean | null>(null);
+  const [showSqlModal, setShowSqlModal] = useState(false);
 
   const [newAcademy, setNewAcademy] = useState({
     name: '', domain: '', plan_id: '', status: 'active', subscription_status: 'trial', expires_at: '', trial_days: '14'
@@ -131,7 +142,14 @@ export default function PlatformOwnerDashboard() {
     setError(null);
     try {
       const [academiesRes, plansRes, featuresRes, planFeaturesRes, subsRes] = await Promise.all([
-        supabase.from('academies').select('*, plan:plans(name, price_monthly)').order('created_at', { ascending: false }),
+        supabase.from('academies').select('id, name, domain, status, plan_id, subscription_status, expires_at, created_at, owner_name, owner_email, phone, country, city, plan:plans(name, price_monthly)').order('created_at', { ascending: false }).then(r => {
+          if (r.error?.message?.includes('owner_name') || r.error?.message?.includes('column') || r.error?.message?.includes('does not exist')) {
+            setSchemaReady(false);
+            return supabase.from('academies').select('id, name, domain, status, plan_id, subscription_status, expires_at, created_at, plan:plans(name, price_monthly)').order('created_at', { ascending: false });
+          }
+          setSchemaReady(true);
+          return r;
+        }),
         supabase.from('plans').select('*').order('price_monthly'),
         supabase.from('features').select('*').order('category, label'),
         supabase.from('plan_features').select('*'),
@@ -173,7 +191,15 @@ export default function PlatformOwnerDashboard() {
   };
 
   const filteredAcademies = academies.filter(a => {
-    const matchSearch = !searchAcademies || a.name.toLowerCase().includes(searchAcademies.toLowerCase()) || a.domain.toLowerCase().includes(searchAcademies.toLowerCase());
+    const q = searchAcademies.toLowerCase();
+    const matchSearch = !searchAcademies ||
+      a.name.toLowerCase().includes(q) ||
+      a.domain.toLowerCase().includes(q) ||
+      (a.owner_name || '').toLowerCase().includes(q) ||
+      (a.owner_email || '').toLowerCase().includes(q) ||
+      (a.phone || '').toLowerCase().includes(q) ||
+      (a.country || '').toLowerCase().includes(q) ||
+      (a.city || '').toLowerCase().includes(q);
     const matchFilter = filterStatus === 'all' || a.subscription_status === filterStatus || a.status === filterStatus;
     return matchSearch && matchFilter;
   });
@@ -323,6 +349,22 @@ export default function PlatformOwnerDashboard() {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); navigate('/login'); };
 
+  const MIGRATION_SQL = `-- Run this in your Supabase SQL Editor (supabase.com/dashboard)
+ALTER TABLE academies ADD COLUMN IF NOT EXISTS owner_name text;
+ALTER TABLE academies ADD COLUMN IF NOT EXISTS owner_email text;
+ALTER TABLE academies ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE academies ADD COLUMN IF NOT EXISTS country text;
+ALTER TABLE academies ADD COLUMN IF NOT EXISTS city text;`;
+
+  const handleRunMigration = () => {
+    setShowSqlModal(true);
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(MIGRATION_SQL);
+    showSuccess('SQL copied to clipboard!');
+  };
+
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
       active: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
@@ -398,6 +440,19 @@ export default function PlatformOwnerDashboard() {
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
             <p className="text-red-700 text-sm">{error}</p>
             <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+          </div>
+        )}
+
+        {schemaReady === false && (
+          <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+            <Database className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-900 font-semibold text-sm">Database schema update required</p>
+              <p className="text-amber-700 text-xs mt-0.5">Contact columns (owner name, phone, country) are not yet in the database. Academy contact info won't display until the schema is updated.</p>
+            </div>
+            <button onClick={handleRunMigration} className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition">
+              <Database className="w-3.5 h-3.5" /> View SQL
+            </button>
           </div>
         )}
 
@@ -548,15 +603,23 @@ export default function PlatformOwnerDashboard() {
             {activeTab === 'academies' && (
               <div className="space-y-5">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-gray-900">Academies</h2>
-                  <button onClick={() => setShowNewAcademyForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm">
-                    <Plus className="w-4 h-4" /> Add Academy
-                  </button>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Academies</h2>
+                    <p className="text-sm text-gray-400 mt-0.5">{filteredAcademies.length} of {academies.length} academies</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
+                      <button onClick={() => setAcademyView('cards')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${academyView === 'cards' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Cards</button>
+                      <button onClick={() => setAcademyView('table')} className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${academyView === 'table' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Table</button>
+                    </div>
+                    <button onClick={() => setShowNewAcademyForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm">
+                      <Plus className="w-4 h-4" /> Add Academy
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
-                  <input type="text" placeholder="Search academies..." value={searchAcademies} onChange={e => setSearchAcademies(e.target.value)}
-                    className={`flex-1 ${inputCls}`} />
+                  <input type="text" placeholder="Search by name, email, phone, country..." value={searchAcademies} onChange={e => setSearchAcademies(e.target.value)} className={`flex-1 ${inputCls}`} />
                   <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={`w-40 ${inputCls}`}>
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
@@ -601,106 +664,210 @@ export default function PlatformOwnerDashboard() {
                   </div>
                 )}
 
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        {['Academy', 'Plan', 'Status', 'Subscription', 'Expires', 'Actions'].map(h => (
-                          <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {filteredAcademies.map(academy => (
-                        editingAcademy?.id === academy.id ? (
-                          <tr key={academy.id} className="bg-blue-50">
-                            <td className="px-5 py-3 space-y-1">
-                              <input type="text" value={editingAcademy.name} onChange={e => setEditingAcademy(p => p ? { ...p, name: e.target.value } : p)} className="w-full px-2 py-1.5 border border-blue-300 rounded-lg text-sm" />
-                              <input type="text" value={editingAcademy.domain} onChange={e => setEditingAcademy(p => p ? { ...p, domain: e.target.value } : p)} className="w-full px-2 py-1.5 border border-blue-300 rounded-lg text-sm" />
-                            </td>
-                            <td className="px-5 py-3">
-                              <select value={editingAcademy.plan_id || ''} onChange={e => setEditingAcademy(p => p ? { ...p, plan_id: e.target.value } : p)} className="w-full px-2 py-1.5 border border-blue-300 rounded-lg text-sm">
-                                <option value="">No Plan</option>
-                                {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                              </select>
-                            </td>
-                            <td className="px-5 py-3">
-                              <select value={editingAcademy.status} onChange={e => setEditingAcademy(p => p ? { ...p, status: e.target.value } : p)} className="w-full px-2 py-1.5 border border-blue-300 rounded-lg text-sm">
-                                <option value="active">Active</option>
-                                <option value="suspended">Suspended</option>
-                              </select>
-                            </td>
-                            <td className="px-5 py-3">
-                              <select value={editingAcademy.subscription_status} onChange={e => setEditingAcademy(p => p ? { ...p, subscription_status: e.target.value } : p)} className="w-full px-2 py-1.5 border border-blue-300 rounded-lg text-sm">
-                                <option value="trial">Trial</option>
-                                <option value="active">Active</option>
-                                <option value="expired">Expired</option>
-                                <option value="suspended">Suspended</option>
-                              </select>
-                            </td>
-                            <td className="px-5 py-3">
-                              <input type="date" value={editingAcademy.expires_at ? editingAcademy.expires_at.split('T')[0] : ''} onChange={e => setEditingAcademy(p => p ? { ...p, expires_at: e.target.value } : p)} className="w-full px-2 py-1.5 border border-blue-300 rounded-lg text-sm" />
-                            </td>
-                            <td className="px-5 py-3">
-                              <div className="flex gap-2">
-                                <button onClick={handleUpdateAcademy} className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200"><Save className="w-4 h-4" /></button>
-                                <button onClick={() => setEditingAcademy(null)} className="p-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"><X className="w-4 h-4" /></button>
+                {academyView === 'cards' ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {filteredAcademies.map(academy => {
+                      const days = getDaysRemaining(academy.expires_at);
+                      return (
+                        <div key={academy.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                          <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-bold text-gray-900 text-base truncate">{academy.name}</h3>
+                                {getStatusBadge(academy.subscription_status)}
+                                {academy.status === 'suspended' && getStatusBadge('suspended')}
                               </div>
-                            </td>
-                          </tr>
-                        ) : (
-                          <tr key={academy.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-5 py-3">
-                              <div className="font-semibold text-gray-900 text-sm">{academy.name}</div>
-                              <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5"><Globe className="w-3 h-3" />{academy.domain}</div>
-                            </td>
-                            <td className="px-5 py-3 text-sm text-gray-600">{academy.plan?.name || <span className="text-gray-300 italic text-xs">No Plan</span>}</td>
-                            <td className="px-5 py-3">{getStatusBadge(academy.status)}</td>
-                            <td className="px-5 py-3">{getStatusBadge(academy.subscription_status)}</td>
-                            <td className="px-5 py-3">
-                              {academy.expires_at ? (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                                <Globe className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{academy.domain}</span>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-sm font-bold text-gray-900">{academy.plan?.name || <span className="text-gray-300 italic font-normal text-xs">No Plan</span>}</div>
+                              {academy.plan && <div className="text-xs text-gray-400">${academy.plan.price_monthly}/mo</div>}
+                            </div>
+                          </div>
+
+                          <div className="px-5 py-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                            <div>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Owner</p>
+                              <p className="text-sm font-semibold text-gray-800 truncate">{academy.owner_name || <span className="text-gray-300 italic font-normal">—</span>}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Email</p>
+                              <p className="text-sm text-gray-700 truncate">{academy.owner_email ? <a href={`mailto:${academy.owner_email}`} className="text-blue-600 hover:underline">{academy.owner_email}</a> : <span className="text-gray-300 italic">—</span>}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Phone</p>
+                              <p className="text-sm text-gray-700">{academy.phone ? <a href={`tel:${academy.phone}`} className="text-blue-600 hover:underline">{academy.phone}</a> : <span className="text-gray-300 italic">—</span>}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Location</p>
+                              <p className="text-sm text-gray-700 truncate">
+                                {[academy.city, academy.country].filter(Boolean).join(', ') || <span className="text-gray-300 italic">—</span>}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Registered</p>
+                              <p className="text-sm text-gray-700">{new Date(academy.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Expires</p>
+                              <p className={`text-sm font-semibold ${days !== null && days < 7 ? 'text-red-600' : 'text-gray-700'}`}>
+                                {academy.expires_at ? (
+                                  <>
+                                    {new Date(academy.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {days !== null && <span className="ml-1 text-xs font-normal text-gray-400">({days > 0 ? `${days}d left` : 'expired'})</span>}
+                                  </>
+                                ) : '—'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <button onClick={() => setEditingAcademy(academy)} className="p-1.5 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleToggleAcademyStatus(academy)} className={`p-1.5 border rounded-lg transition ${academy.status === 'active' ? 'bg-white border-gray-200 text-amber-600 hover:bg-amber-50 hover:border-amber-200' : 'bg-white border-gray-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200'}`} title={academy.status === 'active' ? 'Suspend' : 'Activate'}>
+                                {academy.status === 'active' ? <ToggleLeft className="w-3.5 h-3.5" /> : <ToggleRight className="w-3.5 h-3.5" />}
+                              </button>
+                              <button onClick={() => { setSelectedAcademyForFeatures(academy); loadAcademyFeatureOverrides(academy.id); setActiveTab('academy-features'); }} className="p-1.5 bg-white border border-gray-200 text-amber-600 rounded-lg hover:bg-amber-50 hover:border-amber-200 transition" title="Features">
+                                <Layers className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => handleDeleteAcademy(academy.id)} className="p-1.5 bg-white border border-gray-200 text-red-500 rounded-lg hover:bg-red-50 hover:border-red-200 transition" title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="relative group">
+                              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-xs font-semibold transition">
+                                <Calendar className="w-3 h-3" /> Extend
+                              </button>
+                              <div className="absolute right-0 bottom-full mb-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 hidden group-hover:block min-w-[140px] py-1">
+                                <p className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-1">Extend by</p>
+                                {[1, 3, 6, 12].map(m => (
+                                  <button key={m} onClick={() => handleExtendSubscription(academy, m)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition">
+                                    +{m} month{m > 1 ? 's' : ''}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {editingAcademy?.id === academy.id && (
+                            <div className="px-5 py-4 bg-blue-50 border-t border-blue-200 space-y-3">
+                              <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Edit Academy</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div><label className={labelCls}>Name</label><input type="text" value={editingAcademy.name} onChange={e => setEditingAcademy(p => p ? { ...p, name: e.target.value } : p)} className={inputCls} /></div>
+                                <div><label className={labelCls}>Domain</label><input type="text" value={editingAcademy.domain} onChange={e => setEditingAcademy(p => p ? { ...p, domain: e.target.value } : p)} className={inputCls} /></div>
                                 <div>
-                                  <div className="text-sm text-gray-600">{new Date(academy.expires_at).toLocaleDateString()}</div>
-                                  {(() => {
-                                    const d = getDaysRemaining(academy.expires_at);
-                                    if (d === null) return null;
-                                    return <div className={`text-xs font-medium ${d < 0 ? 'text-red-500' : d < 7 ? 'text-amber-500' : 'text-emerald-600'}`}>{d < 0 ? `${Math.abs(d)}d overdue` : `${d}d left`}</div>;
-                                  })()}
+                                  <label className={labelCls}>Plan</label>
+                                  <select value={editingAcademy.plan_id || ''} onChange={e => setEditingAcademy(p => p ? { ...p, plan_id: e.target.value } : p)} className={inputCls}>
+                                    <option value="">No Plan</option>
+                                    {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                  </select>
                                 </div>
-                              ) : '—'}
-                            </td>
-                            <td className="px-5 py-3">
-                              <div className="flex items-center gap-1.5">
-                                <button onClick={() => setEditingAcademy(academy)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleToggleAcademyStatus(academy)} className={`p-1.5 rounded-lg ${academy.status === 'active' ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`} title={academy.status === 'active' ? 'Suspend' : 'Activate'}>
-                                  {academy.status === 'active' ? <ToggleLeft className="w-3.5 h-3.5" /> : <ToggleRight className="w-3.5 h-3.5" />}
-                                </button>
-                                <button onClick={() => { setSelectedAcademyForFeatures(academy); loadAcademyFeatureOverrides(academy.id); setActiveTab('academy-features'); }} className="p-1.5 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100" title="Feature Overrides">
-                                  <Layers className="w-3.5 h-3.5" />
-                                </button>
-                                <div className="relative group">
-                                  <button className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100" title="Extend Subscription"><Calendar className="w-3.5 h-3.5" /></button>
-                                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 hidden group-hover:block min-w-[150px] py-1">
-                                    <p className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-1">Extend by</p>
-                                    {[1, 3, 6, 12].map(m => (
-                                      <button key={m} onClick={() => handleExtendSubscription(academy, m)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition">
-                                        +{m} month{m > 1 ? 's' : ''}
-                                      </button>
-                                    ))}
-                                  </div>
+                                <div>
+                                  <label className={labelCls}>Subscription</label>
+                                  <select value={editingAcademy.subscription_status} onChange={e => setEditingAcademy(p => p ? { ...p, subscription_status: e.target.value } : p)} className={inputCls}>
+                                    <option value="trial">Trial</option>
+                                    <option value="active">Active</option>
+                                    <option value="expired">Expired</option>
+                                    <option value="suspended">Suspended</option>
+                                  </select>
                                 </div>
-                                <button onClick={() => handleDeleteAcademy(academy.id)} className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100" title="Delete">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div>
+                                  <label className={labelCls}>Status</label>
+                                  <select value={editingAcademy.status} onChange={e => setEditingAcademy(p => p ? { ...p, status: e.target.value } : p)} className={inputCls}>
+                                    <option value="active">Active</option>
+                                    <option value="suspended">Suspended</option>
+                                  </select>
+                                </div>
+                                <div><label className={labelCls}>Expires At</label><input type="date" value={editingAcademy.expires_at ? editingAcademy.expires_at.split('T')[0] : ''} onChange={e => setEditingAcademy(p => p ? { ...p, expires_at: e.target.value } : p)} className={inputCls} /></div>
                               </div>
-                            </td>
-                          </tr>
-                        )
-                      ))}
-                      {filteredAcademies.length === 0 && <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm">No academies found</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={handleUpdateAcademy} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition"><Save className="w-3.5 h-3.5" /> Save</button>
+                                <button onClick={() => setEditingAcademy(null)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 transition">Cancel</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {filteredAcademies.length === 0 && (
+                      <div className="col-span-2 text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-200">
+                        <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">No academies found</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                    <table className="w-full min-w-[900px]">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          {['Academy', 'Owner', 'Contact', 'Location', 'Plan', 'Status', 'Expires', 'Actions'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {filteredAcademies.map(academy => {
+                          const days = getDaysRemaining(academy.expires_at);
+                          return (
+                            <tr key={academy.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-4 py-3">
+                                <div className="font-semibold text-gray-900 text-sm">{academy.name}</div>
+                                <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5"><Globe className="w-3 h-3" />{academy.domain}</div>
+                                <div className="text-xs text-gray-400 mt-0.5">{new Date(academy.created_at).toLocaleDateString()}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-sm font-medium text-gray-900">{academy.owner_name || <span className="text-gray-300 italic text-xs">—</span>}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-sm text-blue-600">{academy.owner_email ? <a href={`mailto:${academy.owner_email}`} className="hover:underline">{academy.owner_email}</a> : <span className="text-gray-300 italic text-xs">—</span>}</div>
+                                {academy.phone && <div className="text-xs text-gray-500 mt-0.5"><a href={`tel:${academy.phone}`} className="hover:underline text-blue-500">{academy.phone}</a></div>}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{[academy.city, academy.country].filter(Boolean).join(', ') || <span className="text-gray-300 italic text-xs">—</span>}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{academy.plan?.name || <span className="text-gray-300 italic text-xs">No Plan</span>}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col gap-1">
+                                  {getStatusBadge(academy.status)}
+                                  {getStatusBadge(academy.subscription_status)}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {academy.expires_at ? (
+                                  <div>
+                                    <div className="text-sm text-gray-600">{new Date(academy.expires_at).toLocaleDateString()}</div>
+                                    {days !== null && <div className={`text-xs font-medium mt-0.5 ${days < 0 ? 'text-red-500' : days < 7 ? 'text-amber-500' : 'text-emerald-600'}`}>{days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}</div>}
+                                  </div>
+                                ) : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => setEditingAcademy(editingAcademy?.id === academy.id ? null : academy)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => handleToggleAcademyStatus(academy)} className={`p-1.5 rounded-lg ${academy.status === 'active' ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                                    {academy.status === 'active' ? <ToggleLeft className="w-3.5 h-3.5" /> : <ToggleRight className="w-3.5 h-3.5" />}
+                                  </button>
+                                  <div className="relative group">
+                                    <button className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100"><Calendar className="w-3.5 h-3.5" /></button>
+                                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-20 hidden group-hover:block min-w-[140px] py-1">
+                                      <p className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-1">Extend by</p>
+                                      {[1, 3, 6, 12].map(m => (
+                                        <button key={m} onClick={() => handleExtendSubscription(academy, m)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition">+{m}mo</button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <button onClick={() => handleDeleteAcademy(academy.id)} className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredAcademies.length === 0 && <tr><td colSpan={8} className="px-5 py-10 text-center text-gray-400 text-sm">No academies found</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1080,6 +1247,32 @@ export default function PlatformOwnerDashboard() {
                   ))}
                 </div>
 
+                {schemaReady === false && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Database className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="font-bold text-amber-900">Schema Update Required</h3>
+                        <p className="text-sm text-amber-700 mt-0.5">The database is missing contact info columns. Run the SQL below in your Supabase SQL Editor to enable full academy contact tracking.</p>
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded-lg p-3 font-mono text-xs text-green-400 whitespace-pre-wrap mb-3">
+                      {MIGRATION_SQL}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleCopySql} className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition">
+                        <Save className="w-3.5 h-3.5" /> Copy SQL
+                      </button>
+                      <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+                        Open Supabase Dashboard
+                      </a>
+                      <button onClick={() => { loadAllData(); }} className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition">
+                        <RefreshCw className="w-3.5 h-3.5" /> Check Again
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                   <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Platform Summary</h3>
                   <div className="grid grid-cols-3 gap-4">
@@ -1106,6 +1299,37 @@ export default function PlatformOwnerDashboard() {
           </div>
         </div>
       </div>
+
+      {showSqlModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-amber-600" />
+                <h3 className="font-bold text-gray-900">Apply Schema Migration</h3>
+              </div>
+              <button onClick={() => setShowSqlModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">Copy the SQL below and run it in your <strong>Supabase SQL Editor</strong> at <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">supabase.com/dashboard</a>.</p>
+              <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 whitespace-pre-wrap overflow-x-auto">
+                {MIGRATION_SQL}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleCopySql} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">
+                  <Save className="w-4 h-4" /> Copy SQL
+                </button>
+                <button onClick={() => { setShowSqlModal(false); loadAllData(); }} className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition">
+                  Done / Refresh
+                </button>
+                <button onClick={() => setShowSqlModal(false)} className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

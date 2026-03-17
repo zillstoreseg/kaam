@@ -58,15 +58,22 @@ export default function Register() {
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
 
+        const academyPayload: Record<string, any> = {
+          name: formData.academyName,
+          domain: domainSlug,
+          status: 'active',
+          subscription_status: 'trial',
+          expires_at: trialEndsAt.toISOString(),
+          owner_name: formData.ownerName,
+          owner_email: formData.email,
+          phone: formData.phone || null,
+          country: formData.country || null,
+          city: formData.city || null,
+        };
+
         const { data: academy, error: academyError } = await supabase
           .from('academies')
-          .insert({
-            name: formData.academyName,
-            domain: domainSlug,
-            status: 'active',
-            subscription_status: 'trial',
-            expires_at: trialEndsAt.toISOString(),
-          })
+          .insert(academyPayload)
           .select()
           .single();
 

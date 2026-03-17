@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
     let body: any = {};
     try { body = await req.json(); } catch {}
 
-    if (body.action === 'run_plan_migrations') {
+    if (body.action === 'run_plan_migrations' || body.action === 'run_all_migrations') {
       const dbUrl = Deno.env.get('SUPABASE_DB_URL');
       if (!dbUrl) {
         return new Response(JSON.stringify({ error: 'SUPABASE_DB_URL not available' }), {
@@ -47,6 +47,13 @@ Deno.serve(async (req: Request) => {
         `UPDATE plans SET display_order=1, max_students=50, max_branches=1, price_yearly=290, is_popular=false WHERE name='Basic' AND display_order=0`,
         `UPDATE plans SET display_order=2, max_students=200, max_branches=3, price_yearly=799, is_popular=true WHERE name='Pro' AND display_order=0`,
         `UPDATE plans SET display_order=3, max_students=0, max_branches=0, price_yearly=1499, is_popular=false WHERE name='Elite' AND display_order=0`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS owner_name text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS owner_email text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS phone text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS country text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS city text`,
+        `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'academies' AND policyname = 'Academy members can view their own academy') THEN CREATE POLICY "Academy members can view their own academy" ON academies FOR SELECT TO authenticated USING (id IN (SELECT academy_id FROM profiles WHERE id = auth.uid() AND academy_id IS NOT NULL) OR EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner'))); END IF; END $$`,
+        `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'academies' AND policyname = 'Authenticated users can insert academies') THEN CREATE POLICY "Authenticated users can insert academies" ON academies FOR INSERT TO authenticated WITH CHECK (true); END IF; END $$`,
       ];
 
       for (const m of migrations) {
