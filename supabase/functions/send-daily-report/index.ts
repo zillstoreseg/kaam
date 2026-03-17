@@ -37,62 +37,39 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => ({}));
 
-    if (body.action === 'run_migration') {
-      const supabase = createClient(supabaseUrl, supabaseKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
+    if (body.action === 'run_migration' || body.action === 'run_academy_migration') {
+      const dbUrl = Deno.env.get('SUPABASE_DB_URL');
+      if (!dbUrl) {
+        return new Response(JSON.stringify({ error: 'SUPABASE_DB_URL not available' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-      const ddlStatements = [
+      const { default: postgres } = await import('npm:postgres@3.4.4');
+      const sql = postgres(dbUrl, { max: 1, ssl: 'require' });
+      const results: any[] = [];
+
+      const migrations = [
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS owner_name text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS owner_email text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS phone text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS country text`,
+        `ALTER TABLE academies ADD COLUMN IF NOT EXISTS city text`,
         `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS academy_id uuid REFERENCES academies(id) ON DELETE SET NULL`,
         `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS platform_role text DEFAULT NULL`,
         `CREATE INDEX IF NOT EXISTS idx_profiles_academy_id ON profiles(academy_id)`,
       ];
 
-      const policyStatements = [
-        {
-          check: `SELECT 1 FROM pg_policies WHERE tablename = 'academies' AND policyname = 'Academy admins can insert their academy'`,
-          sql: `CREATE POLICY "Academy admins can insert their academy" ON academies FOR INSERT TO authenticated WITH CHECK (true)`,
-        },
-        {
-          check: `SELECT 1 FROM pg_policies WHERE tablename = 'academies' AND policyname = 'Academy admins can view own academy'`,
-          sql: `CREATE POLICY "Academy admins can view own academy" ON academies FOR SELECT TO authenticated USING (id IN (SELECT academy_id FROM profiles WHERE id = auth.uid()) OR EXISTS (SELECT 1 FROM platform_roles WHERE user_id = auth.uid() AND role IN ('owner', 'super_owner')))`,
-        },
-        {
-          check: `SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can insert own profile'`,
-          sql: `CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid())`,
-        },
-        {
-          check: `SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can update own profile'`,
-          sql: `CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid())`,
-        },
-      ];
-
-      const results: any[] = [];
-
-      for (const ddl of ddlStatements) {
-        const res = await fetch(`${supabaseUrl}/rest/v1/rpc/pg_execute`, {
-          method: 'POST',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stmt: ddl }),
-        });
-        const resBody = await res.json().catch(() => ({}));
-        if (res.ok || resBody.message?.includes('already exists')) {
-          results.push({ sql: ddl.substring(0, 60), status: 'ok' });
-        } else {
-          results.push({ sql: ddl.substring(0, 60), status: 'error', detail: resBody.message });
+      for (const m of migrations) {
+        try {
+          await sql.unsafe(m);
+          results.push({ ok: true, sql: m.substring(0, 80) });
+        } catch (e: any) {
+          results.push({ ok: false, sql: m.substring(0, 80), error: e.message });
         }
       }
 
-      for (const p of policyStatements) {
-        const wrapped = `DO $$ BEGIN IF NOT EXISTS (${p.check}) THEN ${p.sql}; END IF; END $$`;
-        const res = await fetch(`${supabaseUrl}/rest/v1/rpc/pg_execute`, {
-          method: 'POST',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stmt: wrapped }),
-        });
-        const resBody = await res.json().catch(() => ({}));
-        results.push({ sql: p.sql.substring(0, 60), status: res.ok ? 'ok' : 'error', detail: resBody.message });
-      }
+      await sql.end();
 
       return new Response(JSON.stringify({ success: true, results }), {
         status: 200,
